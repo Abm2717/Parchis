@@ -42,16 +42,8 @@ public class Partida {
         return jugadores;
     }
 
-    public void setJugadores(List<Jugador> jugadores) {
-        this.jugadores = jugadores;
-    }
-
     public Tablero getTablero() {
         return tablero;
-    }
-
-    public void setTablero(Tablero tablero) {
-        this.tablero = tablero;
     }
 
     public boolean isIniciada() {
@@ -65,9 +57,7 @@ public class Partida {
     public void setMaxJugadores(int maxJugadores) {
         this.maxJugadores = maxJugadores;
     }
-    
-    
-    
+        
     public boolean agregarJugador(Jugador jugador) {
         if(jugadores.size() < maxJugadores) {
             jugadores.add(jugador);

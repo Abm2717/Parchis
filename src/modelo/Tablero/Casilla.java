@@ -16,14 +16,14 @@ import modelo.Ficha.Ficha;
 public class Casilla {
      // Atributos
     private int indice;         // numero de casilla en el tablero (1, 2, 3...)
-    private int posicion;       // posicion en la interfaz gráfica (x,y o índice lineal)
+    private int posicion;       // posicion en la interfaz grafica (x,y o indice lineal)
     private ColorCasilla color;        // color de la casilla (o null si es neutra)
     private TipoCasilla tipo;   // tipo de casilla (NORMAL, SEGURA, INICIO, META, etc.)
-    private int capacidad;        // cuántas fichas puede tener (p. ej., 1 en bloqueos)
-    private boolean bloqueada;    // si está bloqueada por dos fichas iguales
-    private List<Ficha> fichas;   // las fichas que están actualmente en la casilla
+    private int capacidad;        // cuantas fichas puede tener (p. ej., 1 en bloqueos)
+    private boolean bloqueada;    // si esta bloqueada por dos fichas iguales
+    private List<Ficha> fichas;   // las fichas que estan actualmente en la casilla
 
-    // Métodos
+    // Metodos
 
     public Casilla(int indice, int posicion, ColorCasilla color, TipoCasilla tipo, int capacidad) {
         this.indice = indice;
@@ -57,24 +57,12 @@ public class Casilla {
         return color;
     }
 
-    public void setColor(ColorCasilla color) {
-        this.color = color;
-    }
-
     public TipoCasilla getTipo() {
         return tipo;
     }
 
-    public void setTipo(TipoCasilla tipo) {
-        this.tipo = tipo;
-    }
-
     public int getCapacidad() {
         return capacidad;
-    }
-
-    public void setCapacidad(int capacidad) {
-        this.capacidad = capacidad;
     }
 
     public boolean isBloqueada() {
@@ -88,12 +76,8 @@ public class Casilla {
     public List<Ficha> getFichas() {
         return fichas;
     }
-
-    public void setFichas(List<Ficha> fichas) {
-        this.fichas = fichas;
-    }
     
-    // ✅ Método para agregar ficha
+    // ✅ Metodo para agregar ficha
     public void agregarFicha(Ficha ficha) {
         fichas.add(ficha);
         // opcional: actualizar bloqueada si se excede capacidad
@@ -102,7 +86,7 @@ public class Casilla {
         }
     }
 
-    // Método para quitar ficha
+    // Metodo para quitar ficha
     public void removerFicha(Ficha ficha) {
         fichas.remove(ficha);
         // actualizar bloqueada

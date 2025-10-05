@@ -13,20 +13,33 @@ public class Tablero {
         inicializarCasillas();
     }  
 
-    // Inicializar casillas (ejemplo básico, puedes ajustar tipos y colores)
+    // Inicializar casillas (ejemplo basico, puedes ajustar tipos y colores)
     public void inicializarCasillas() {
+        casillas = new ArrayList<>();
+
+        // Casillas normales
         for (int i = 1; i <= 68; i++) {
-            // Puedes cambiar color o tipo según el número de casilla
-            Casilla casilla = new Casilla(
-                i,                  // indice
-                i,                  // posición
-                modelo.Tablero.ColorCasilla.NINGUNO,  // color (ajustar según camino)
-                modelo.Tablero.TipoCasilla.NORMAL, // tipo
-                2                   // capacidad de fichas
-            );
-            casillas.add(casilla);
+            TipoCasilla tipo = TipoCasilla.NORMAL;
+
+            // Casilla de salida/inicio roja
+            if (i == 1) tipo = TipoCasilla.INICIO;
+
+            // Casilla de salida/inicio azul
+            if (i == 18) tipo = TipoCasilla.INICIO;
+
+            casillas.add(new Casilla(i, i, ColorCasilla.NINGUNO, tipo, 2));
+        }
+
+        // Casillas meta / casa final (ejemplo para rojo y azul)
+        for (int i = 69; i <= 72; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.ROJO, TipoCasilla.META, 1));
+        }
+        for (int i = 73; i <= 76; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.AZUL, TipoCasilla.META, 1));
         }
     }
+
+
 
     // Obtener casilla por indice
     public Casilla getCasillaPorIndice(int indice) {
@@ -36,7 +49,7 @@ public class Tablero {
         return null;
     }
 
-    // Obtener casilla por posición
+    // Obtener casilla por posicion
     public Casilla getCasillaPorPosicion(int posicion) {
         for (Casilla c : casillas) {
             if (c.getPosicion() == posicion) return c;
@@ -44,7 +57,7 @@ public class Tablero {
         return null;
     }
 
-    // Número total de casillas
+    // Numero total de casillas
     public int getNumeroCasillas() {
         return casillas.size();
     }

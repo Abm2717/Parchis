@@ -38,10 +38,6 @@ public class Ficha {
         return color;
     }
 
-    public void setColor(ColorJugador color) {
-        this.color = color;
-    }
-
     public EstadoFicha getEstado() {
         return estado;
     }

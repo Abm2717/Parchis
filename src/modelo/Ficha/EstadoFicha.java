@@ -9,7 +9,7 @@ package modelo.Ficha;
  * @author a5581
  */
 public enum EstadoFicha {
-    EN_CASA,    // todavía no salio al tablero
+    EN_CASA,    // todavia no salio al tablero
     EN_TABLERO, // esta en el circuito principal o rampa
     EN_META,    // llego a la meta
     BLOQUEADA //en caso de que no pueda avanzar por bloqueo

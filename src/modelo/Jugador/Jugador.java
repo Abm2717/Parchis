@@ -15,12 +15,12 @@ import modelo.Tablero.ColorCasilla;
  */
 public class Jugador {
     // Atributos
-    private int id;               // identificador único del jugador
+    private int id;               // identificador unico del jugador
     private String nombre;        // nombre del jugador
     private ColorJugador color;   // color de sus fichas
     private String avatar;        // ruta o identificador del avatar
     private int puntos;           // puntaje acumulado
-    private boolean listo;        // si está listo para iniciar la partida
+    private boolean listo;        // si esta listo para iniciar la partida
     private List<Ficha> fichas;
 
     // Constructor
@@ -55,7 +55,7 @@ public class Jugador {
         return color;
     }
 
-    public void setColor(ColorJugador    color) {
+    public void setColor(ColorJugador color) {
         this.color = color;
     }
 
@@ -83,7 +83,7 @@ public class Jugador {
         this.listo = listo;
     }
     
-     // Método para agregar ficha
+     // Metodo para agregar ficha
     public void agregarFicha(Ficha ficha) {
         fichas.add(ficha);
     }

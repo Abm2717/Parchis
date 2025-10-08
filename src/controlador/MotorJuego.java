@@ -103,5 +103,16 @@ public class MotorJuego {
         }
         System.out.println("---------------------------\n");
     }
+    
+     public Ficha buscarFicha(int fichaId){
+        for(Jugador jugador : partida.getJugadores()){
+            for(Ficha f : jugador.getFichas()){
+                if(f.getId() == fichaId){
+                    return f;
+                }
+            }
+        }
+        return null; // si no se encuentra
+    }
 
 }

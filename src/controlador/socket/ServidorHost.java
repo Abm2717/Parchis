@@ -45,53 +45,71 @@ public class ServidorHost {
         }
 
         @Override
-        public void run(){
-            try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new PrintWriter(socket.getOutputStream(), true);
-                clientes.add(out);
+public void run(){
+    try {
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out = new PrintWriter(socket.getOutputStream(), true);
+        clientes.add(out);
 
-                // Pedir nombre y color
-                out.println("Ingrese su nombre:");
-                String nombre = in.readLine();
+        // Pedir nombre y color
+        out.println("Ingrese su nombre:");
+        String nombre = in.readLine();
 
-                out.println("Ingrese su color (ROJO o AZUL):");
-                ColorJugador color = ColorJugador.valueOf(in.readLine().toUpperCase());
+        out.println("Ingrese su color (ROJO o AZUL):");
+        ColorJugador color = ColorJugador.valueOf(in.readLine().toUpperCase());
 
-                jugador = new Jugador(partida.getJugadores().size()+1, nombre, color, "avatar.png");
-                for(int i=1;i<=4;i++) jugador.agregarFicha(new Ficha(i, color));
-                partida.agregarJugador(jugador);
+        jugador = new Jugador(partida.getJugadores().size()+1, nombre, color, "avatar.png");
+        for(int i=1;i<=4;i++) jugador.agregarFicha(new Ficha(i, color));
+        partida.agregarJugador(jugador);
 
-                // Colocar fichas en casilla inicial
-                int inicioIndice = (color==ColorJugador.ROJO)?1:18;
-                Casilla inicio = partida.getTablero().getCasillaPorIndice(inicioIndice);
+        // Colocar fichas en casilla inicial
+        int inicioIndice = (color==ColorJugador.ROJO)?1:18;
+        Casilla inicio = partida.getTablero().getCasillaPorIndice(inicioIndice);
+        for(Ficha f : jugador.getFichas()){
+            inicio.agregarFicha(f);
+            f.setCasillaActual(inicio);
+        }
+
+        enviarATodos("Jugador "+nombre+" se ha unido con color "+color);
+
+        // Escuchar comandos del jugador
+        String line;
+        while((line = in.readLine()) != null){
+            System.out.println("Comando recibido de " + nombre + ": " + line); // Debug
+            
+            if(line.startsWith("MOVE")){
+                String[] parts = line.split(" ");
+                int fichaId = Integer.parseInt(parts[1]);
+                int avance = Integer.parseInt(parts[2]);
+                
+                // CORRECCIÓN: Buscar la ficha del jugador actual, no global
+                Ficha fichaAMover = null;
                 for(Ficha f : jugador.getFichas()){
-                    inicio.agregarFicha(f);
-                    f.setCasillaActual(inicio);
-                }
-
-                enviarATodos("Jugador "+nombre+" se ha unido con color "+color);
-
-                // Escuchar comandos del jugador
-                String line;
-                while((line = in.readLine()) != null){
-                    if(line.startsWith("MOVE")){
-                        String[] parts = line.split(" ");
-                        int fichaId = Integer.parseInt(parts[1]);
-                        int avance = Integer.parseInt(parts[2]);
-                        Ficha f = motor.buscarFicha(fichaId);
-                        if(f != null){
-                            motor.moverFicha(f, avance);
-                            enviarEstadoATodos();
-                        }
+                    if(f.getId() == fichaId){
+                        fichaAMover = f;
+                        break;
                     }
                 }
-
-            } catch(Exception e){
-                System.out.println("Jugador desconectado: "+(jugador!=null?jugador.getNombre():"Desconocido"));
+                
+                if(fichaAMover != null){
+                    System.out.println("Moviendo ficha " + fichaId + " de " + nombre); // Debug
+                    motor.moverFicha(fichaAMover, avance);
+                    enviarEstadoATodos();
+                } else {
+                    out.println("❌ Ficha " + fichaId + " no encontrada");
+                }
+            } 
+            else if(line.equals("ESTADO")){
+                // CORRECCIÓN: Manejar comando ESTADO
+                enviarEstadoATodos();
             }
         }
 
+    } catch(Exception e){
+        System.out.println("Jugador desconectado: "+(jugador!=null?jugador.getNombre():"Desconocido"));
+        e.printStackTrace(); // Para ver errores
+    }
+}
         private void enviarATodos(String msg){
             for(PrintWriter p : clientes) p.println(msg);
         }

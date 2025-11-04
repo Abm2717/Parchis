@@ -1,29 +1,17 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package modelo.Tablero;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import modelo.Ficha.Ficha;
 
-/**
- *
- * @author a5581
- */
 public class Casilla {
-     // Atributos
-    private int indice;         // numero de casilla en el tablero (1, 2, 3...)
-    private int posicion;       // posicion en la interfaz grafica (x,y o indice lineal)
-    private ColorCasilla color;        // color de la casilla (o null si es neutra)
-    private TipoCasilla tipo;   // tipo de casilla (NORMAL, SEGURA, INICIO, META, etc.)
-    private int capacidad;        // cuantas fichas puede tener (p. ej., 1 en bloqueos)
-    private boolean bloqueada;    // si esta bloqueada por dos fichas iguales
-    private List<Ficha> fichas;   // las fichas que estan actualmente en la casilla
-
-    // Metodos
+    private int indice;
+    private int posicion;
+    private ColorCasilla color;
+    private TipoCasilla tipo;
+    private int capacidad;
+    private boolean bloqueada;
+    private List<Ficha> fichas;
 
     public Casilla(int indice, int posicion, ColorCasilla color, TipoCasilla tipo, int capacidad) {
         this.indice = indice;
@@ -31,65 +19,97 @@ public class Casilla {
         this.color = color;
         this.tipo = tipo;
         this.capacidad = capacidad;
-        this.bloqueada = false;          // inicializar en false
-        this.fichas = new ArrayList<>(); // 🔹 inicializar la lista
+        this.bloqueada = false;
+        this.fichas = new ArrayList<>();
     }
+
+    // Getters y setters originales
+    public int getIndice() { return indice; }
+    public void setIndice(int indice) { this.indice = indice; }
+    public int getPosicion() { return posicion; }
+    public void setPosicion(int posicion) { this.posicion = posicion; }
+    public ColorCasilla getColor() { return color; }
+    public TipoCasilla getTipo() { return tipo; }
+    public int getCapacidad() { return capacidad; }
+    public boolean isBloqueada() { return bloqueada; }
+    public void setBloqueada(boolean bloqueada) { this.bloqueada = bloqueada; }
+    public List<Ficha> getFichas() { return fichas; }
+
+    // ✅ Métodos requeridos por MotorJuego
     
-    
-
-    public int getIndice() {
-        return indice;
+    /**
+     * Verifica si esta casilla es segura (no permite capturas).
+     */
+    public boolean isSegura() {
+        return tipo == TipoCasilla.SEGURA || tipo == TipoCasilla.INICIO;
     }
 
-    public void setIndice(int indice) {
-        this.indice = indice;
-    }
-
-    public int getPosicion() {
-        return posicion;
-    }
-
-    public void setPosicion(int posicion) {
-        this.posicion = posicion;
-    }
-
-    public ColorCasilla getColor() {
-        return color;
-    }
-
-    public TipoCasilla getTipo() {
-        return tipo;
-    }
-
-    public int getCapacidad() {
-        return capacidad;
-    }
-
-    public boolean isBloqueada() {
-        return bloqueada;
-    }
-
-    public void setBloqueada(boolean bloqueada) {
-        this.bloqueada = bloqueada;
-    }
-
-    public List<Ficha> getFichas() {
-        return fichas;
-    }
-    
-    // ✅ Metodo para agregar ficha
+    /**
+     * Agrega una ficha a esta casilla.
+     */
     public void agregarFicha(Ficha ficha) {
+        if (ficha == null) return;
+        
         fichas.add(ficha);
-        // opcional: actualizar bloqueada si se excede capacidad
-        if(fichas.size() >= capacidad) {
-            bloqueada = true;
-        }
+        
+        // Actualizar estado de bloqueo si hay 2+ fichas del mismo jugador
+        actualizarBloqueo();
     }
 
-    // Metodo para quitar ficha
+    /**
+     * Remueve una ficha de esta casilla.
+     */
     public void removerFicha(Ficha ficha) {
         fichas.remove(ficha);
-        // actualizar bloqueada
-        bloqueada = fichas.size() >= capacidad;
+        actualizarBloqueo();
+    }
+
+    /**
+     * Limpia todas las fichas de esta casilla.
+     */
+    public void limpiarFichas() {
+        fichas.clear();
+        bloqueada = false;
+    }
+
+    /**
+     * Actualiza el estado de bloqueo según las fichas presentes.
+     */
+    private void actualizarBloqueo() {
+        if (fichas.size() < 2) {
+            bloqueada = false;
+            return;
+        }
+
+        // Verificar si hay 2+ fichas del mismo jugador
+        java.util.Map<Integer, Long> fichasPorJugador = fichas.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                Ficha::getIdJugador, 
+                java.util.stream.Collectors.counting()
+            ));
+
+        bloqueada = fichasPorJugador.values().stream().anyMatch(count -> count >= 2);
+    }
+
+    /**
+     * Obtiene el número de fichas de un jugador específico en esta casilla.
+     */
+    public int contarFichasDeJugador(int jugadorId) {
+        return (int) fichas.stream()
+            .filter(f -> f.getIdJugador() == jugadorId)
+            .count();
+    }
+
+    /**
+     * Verifica si esta casilla tiene capacidad para más fichas.
+     */
+    public boolean tieneEspacio() {
+        return fichas.size() < capacidad;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Casilla[idx=%d, tipo=%s, fichas=%d, bloqueada=%s]",
+            indice, tipo, fichas.size(), bloqueada);
     }
 }

@@ -1,33 +1,39 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package modelo.partida;
 
 import java.util.Random;
 
 /**
- *
- * @author a5581
+ * Dado con posibilidad de inyección de Random para tests.
  */
 public class Dado {
-    private int valor;         // ultimo valor obtenido
-    private Random random;     // generador de numeros aleatorios
+    private int ultimoValor;         // último valor obtenido
+    private final Random random;     // generador de números aleatorios
 
-    // Constructor
+    // Constructor por defecto
     public Dado() {
-        this.random = new Random();
-        this.valor = 1; // valor inicial
+        this(new Random());
     }
 
-    // Metodo para tirar el dado
+    // Constructor para inyectar Random (útil en tests)
+    public Dado(Random random) {
+        this.random = random;
+        this.ultimoValor = 1;
+    }
+
+    // Método para tirar el dado
     public int tirar() {
-        valor = random.nextInt(6) + 1; // genera numero entre 1 y 6
-        return valor;
+        ultimoValor = random.nextInt(6) + 1; // genera número entre 1 y 6
+        return ultimoValor;
     }
 
-    // Getter del valor actual
-    public int getValor() {
-        return valor;
+    // Getter del último valor
+    public int getUltimoValor() {
+        return ultimoValor;
+    }
+
+    // Setter de último valor (paquetes/tests si necesitas forzar un valor)
+    void setUltimoValor(int v) {
+        this.ultimoValor = v;
     }
 }
+

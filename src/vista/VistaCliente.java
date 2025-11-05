@@ -1,6 +1,10 @@
 package vista;
 
 import controlador.ClienteControlador;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class VistaCliente {
@@ -35,7 +39,7 @@ public class VistaCliente {
         
         if (registrado) {
             try {
-                Thread.sleep(200); // Esperar respuesta
+                Thread.sleep(200);
             } catch (InterruptedException e) { }
         }
         
@@ -213,7 +217,7 @@ public class VistaCliente {
             }
         }
 
-        // ✅ SOLUCIÓN: Esperar a que termine el juego
+        // Esperar a que termine el juego
         while (enPartida) {
             try {
                 Thread.sleep(1000);
@@ -222,7 +226,6 @@ public class VistaCliente {
             }
         }
 
-        // ✅ O mejor aún: Esperar indefinidamente hasta que el usuario cierre
         System.out.println("\nPresiona Enter para salir...");
         try {
             scanner.nextLine();
@@ -247,7 +250,7 @@ public class VistaCliente {
             Thread.sleep(1000);
         } catch (InterruptedException e) { }
         
-        // ✅ CORRECCIÓN: Verificar turno inicial y mostrar mensaje
+        // Verificar turno inicial y mostrar mensaje
         if (controlador.esmiTurno()) {
             System.out.println("\n** Eres el primero en jugar! **");
         } else {
@@ -332,7 +335,7 @@ public class VistaCliente {
         try {
             String input = scanner.nextLine().trim();
             if (input.isEmpty()) {
-                // ✅ Si no ingresa nada, terminar turno
+                controlador.saltarTurno();
                 controlador.marcarTurnoTerminado();
                 return;
             }
@@ -341,14 +344,13 @@ public class VistaCliente {
 
             if (fichaId == 0) {
                 System.out.println("Turno saltado.");
-                controlador.saltarTurno();  // ✅ Envía mensaje al servidor
+                controlador.saltarTurno();
                 controlador.marcarTurnoTerminado();
                 return;
             }
 
             if (fichaId < 1 || fichaId > 4) {
                 System.out.println("ID debe ser entre 1 y 4.");
-                // ✅ NUEVO: Terminar turno aunque haya error
                 controlador.marcarTurnoTerminado();
                 return;
             }
@@ -365,24 +367,19 @@ public class VistaCliente {
                 } catch (InterruptedException e) { }
             } else {
                 System.out.println("No se pudo mover la ficha.");
-                // ✅ NUEVO: Terminar turno aunque el movimiento falle
                 controlador.marcarTurnoTerminado();
             }
 
         } catch (NumberFormatException e) {
             System.out.println("ID invalido.");
-            // ✅ NUEVO: Terminar turno en caso de error
             controlador.marcarTurnoTerminado();
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            // ✅ NUEVO: Terminar turno en caso de error
             controlador.marcarTurnoTerminado();
         }
     }
     
-    
     private void esperarTurno() {
-        // Simplemente esperar sin imprimir mucho
         try {
             Thread.sleep(500);
         } catch (InterruptedException e) { }
@@ -410,6 +407,72 @@ public class VistaCliente {
         System.out.println(SEPARADOR);
     }
     
+    // ✅ NUEVO: Mostrar cambio de turno
+    public void mostrarCambioTurno(String jugadorNombre) {
+        System.out.println("\n[TURNO] Ahora es el turno de: " + jugadorNombre);
+        System.out.println("** Esperando turno de otros jugadores... **");
+    }
+    
+    /**
+     * ✅ NUEVO: Mostrar estado del tablero procesando JSON del modelo
+     * Responsabilidad de la VISTA: formatear y presentar los datos
+     */
+    public void mostrarEstadoTablero(JsonObject tableroJson) {
+        System.out.println("\n========================================");
+        System.out.println("         ESTADO DEL TABLERO");
+        System.out.println("========================================\n");
+        
+        JsonArray casillas = tableroJson.getAsJsonArray("casillas");
+        
+        for (int i = 0; i < casillas.size(); i++) {
+            JsonObject casilla = casillas.get(i).getAsJsonObject();
+            JsonArray fichas = casilla.getAsJsonArray("fichas");
+            
+            // Solo mostrar casillas con fichas
+            if (fichas.size() > 0) {
+                int indice = casilla.get("indice").getAsInt();
+                String tipo = casilla.get("tipo").getAsString();
+                
+                System.out.printf("Casilla %2d: ", indice);
+                
+                // Mostrar tipo de casilla
+                if (tipo.equals("SEGURA")) {
+                    System.out.print("[SEGURA] ");
+                } else if (tipo.equals("META")) {
+                    System.out.print("[META]   ");
+                } else if (tipo.equals("INICIO")) {
+                    System.out.print("[INICIO] ");
+                }
+                
+                // Mostrar fichas
+                List<String> fichasStr = new ArrayList<>();
+                for (int j = 0; j < fichas.size(); j++) {
+                    JsonObject ficha = fichas.get(j).getAsJsonObject();
+                    String color = obtenerNombreColor(ficha.get("color").getAsString());
+                    int id = ficha.get("id").getAsInt();
+                    fichasStr.add(color + "-" + id);
+                }
+                
+                System.out.println(String.join(", ", fichasStr));
+            }
+        }
+        
+        System.out.println("\n========================================\n");
+    }
+    
+    /**
+     * Convierte nombre de color a español
+     */
+    private String obtenerNombreColor(String color) {
+        switch (color) {
+            case "ROJO": return "Rojo";
+            case "AMARILLO": return "Amarillo";
+            case "VERDE": return "Verde";
+            case "AZUL": return "Azul";
+            default: return "???";
+        }
+    }
+    
     public void mostrarResultadoDados(int dado1, int dado2, boolean esDoble) {
         System.out.println("\n" + SEPARADOR_FINO);
         System.out.println("  Resultado: [" + dado1 + "] [" + dado2 + "] = " + (dado1 + dado2));
@@ -417,11 +480,6 @@ public class VistaCliente {
             System.out.println("  ** DOBLE ** - Puedes volver a tirar!");
         }
         System.out.println(SEPARADOR_FINO);
-    }
-    
-    public void mostrarCambioTurno(String jugadorNombre) {
-        System.out.println("\n[TURNO] Ahora es el turno de: " + jugadorNombre);
-        System.out.println("** Esperando turno de otros jugadores... **");
     }
     
     public void mostrarDadosOtroJugador(String nombre, int d1, int d2) {

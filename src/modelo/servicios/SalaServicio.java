@@ -22,12 +22,12 @@ public class SalaServicio {
     private final PersistenciaServicio persistencia;
     private final ReentrantLock lock;
     
-    // Colores disponibles en orden
+    // ✅ NUEVO ORDEN: Rojo → Amarillo → Verde → Azul
     private static final ColorJugador[] COLORES_DISPONIBLES = {
         ColorJugador.ROJO,
-        ColorJugador.AZUL,
         ColorJugador.AMARILLO,
-        ColorJugador.VERDE
+        ColorJugador.VERDE,
+        ColorJugador.AZUL
     };
     
     // Constructor privado (Singleton)
@@ -333,6 +333,7 @@ public class SalaServicio {
     
     /**
      * Asigna un color disponible a un jugador en una partida.
+     * Orden: Rojo → Amarillo → Verde → Azul
      */
     private ColorJugador asignarColorDisponible(Partida partida) {
         List<ColorJugador> coloresUsados = new ArrayList<>();

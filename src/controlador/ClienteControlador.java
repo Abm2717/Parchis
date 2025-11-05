@@ -17,7 +17,7 @@ public class ClienteControlador {
     private int jugadorId;
     private int partidaActualId;
     private boolean esmiTurno;
-    private int ultimoResultadoDados; // ✅ NUEVO
+    private int ultimoResultadoDados;
     
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
@@ -136,10 +136,10 @@ public class ClienteControlador {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    // ✅ CORRECCIÓN: Llamar en un thread separado para no bloquear
+                    // Llamar en un thread separado para no bloquear
                     new Thread(() -> {
                         try {
-                            Thread.sleep(500); // Pequeña pausa
+                            Thread.sleep(500);
                             vista.iniciarJuego();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
@@ -152,13 +152,21 @@ public class ClienteControlador {
                     vista.notificarTurno();
                     break;
                     
+                // ✅ NUEVO: Manejo de cambio de turno
                 case "cambio_turno":
+                    esmiTurno = false;
                     String nombreTurno = json.get("jugadorNombre").getAsString();
                     vista.mostrarCambioTurno(nombreTurno);
                     break;
-    
+                    
+                // ✅ NUEVO: Manejo de estado del tablero
+                case "estado_tablero":
+                    JsonObject tableroJson = json.getAsJsonObject("tablero"); // ✅ CORRECTO: getAsJsonObject
+                    vista.mostrarEstadoTablero(tableroJson);
+                    break;
+                    
                 case "resultado_dados":
-                    // ✅ NUESTRO RESULTADO
+                    // Nuestro resultado
                     JsonObject dados = json.getAsJsonObject("dados");
                     int dado1 = dados.get("dado1").getAsInt();
                     int dado2 = dados.get("dado2").getAsInt();
@@ -290,6 +298,13 @@ public class ClienteControlador {
         return enviarMensaje(mensaje);
     }
     
+    // ✅ NUEVO: Saltar turno
+    public boolean saltarTurno() {
+        JsonObject mensaje = new JsonObject();
+        mensaje.addProperty("tipo", "saltar_turno");
+        return enviarMensaje(mensaje);
+    }
+    
     public boolean salirDePartida() {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "salir_sala");
@@ -300,12 +315,6 @@ public class ClienteControlador {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "obtener_estado");
         enviarMensaje(mensaje);
-    }
-    
-    public boolean saltarTurno() {
-        JsonObject mensaje = new JsonObject();
-        mensaje.addProperty("tipo", "saltar_turno");
-        return enviarMensaje(mensaje);
     }
     
     // ============================
@@ -321,7 +330,6 @@ public class ClienteControlador {
     }
     
     public void mostrarJugadoresEnSala() {
-        // Placeholder - la info real viene del servidor
         System.out.println("  Jugadores en sala: (esperando info del servidor)");
     }
     

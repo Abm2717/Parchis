@@ -130,19 +130,23 @@ public class CtrlMoverFicha {
             
             // ✅ NUEVO: Avanzar turno solo si el movimiento fue exitoso
             partida.avanzarTurno();
-
-            // Notificar al siguiente jugador
+            
+            // ✅ NUEVO: Notificar estado del tablero a todos
+            notificarEstadoTablero(partida, cliente);
+            
+            // ✅ NUEVO: Notificar al siguiente jugador
             Jugador siguienteJugador = partida.getJugadorActual();
             if (siguienteJugador != null) {
                 notificarCambioTurno(partida, siguienteJugador, cliente);
             }
-
+            
             // Crear respuesta
             JsonObject respuesta = crearRespuestaMovimiento(resultado);
-
+            
             return respuesta.toString();
             
         } catch (MotorJuego.MovimientoInvalidoException e) {
+            // ✅ CORRECCIÓN: No cambiar turno si el movimiento es inválido
             return crearError("Movimiento inválido: " + e.getMessage());
         } catch (MotorJuego.NoEsTuTurnoException e) {
             return crearError("No es tu turno");
@@ -218,6 +222,9 @@ public class CtrlMoverFicha {
             
             // Notificar
             notificarUsoBonus(partida, jugador, fichaId, pasos, resultado, cliente);
+            
+            // ✅ NUEVO: Notificar estado del tablero
+            notificarEstadoTablero(partida, cliente);
             
             // Crear respuesta
             JsonObject respuesta = crearRespuestaMovimiento(resultado);
@@ -381,29 +388,55 @@ public class CtrlMoverFicha {
         );
     }
     
-    // ✅ NUEVO: Notifica cambio de turno
+    /**
+     * ✅ NUEVO: Notifica cambio de turno
+     */
     private void notificarCambioTurno(Partida partida, Jugador jugadorTurno, ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "tu_turno");
-        notificacion.addProperty("jugadorId", jugadorTurno.getId());
-        notificacion.addProperty("jugadorNombre", jugadorTurno.getNombre());
+        // Notificar al jugador cuyo turno es
+        JsonObject tuTurno = new JsonObject();
+        tuTurno.addProperty("tipo", "tu_turno");
+        tuTurno.addProperty("jugadorId", jugadorTurno.getId());
+        tuTurno.addProperty("jugadorNombre", jugadorTurno.getNombre());
         
-        // Enviar solo al jugador cuyo turno es
         ClienteHandler handlerTurno = cliente.getServidor().getCliente(jugadorTurno.getSessionId());
         if (handlerTurno != null) {
-            handlerTurno.enviarMensaje(notificacion.toString());
+            handlerTurno.enviarMensaje(tuTurno.toString());
         }
         
-        // También informar a los demás que cambió el turno
-        JsonObject notifGeneral = new JsonObject();
-        notifGeneral.addProperty("tipo", "cambio_turno");
-        notifGeneral.addProperty("jugadorId", jugadorTurno.getId());
-        notifGeneral.addProperty("jugadorNombre", jugadorTurno.getNombre());
+        // Notificar a los demás que cambió el turno
+        JsonObject cambioTurno = new JsonObject();
+        cambioTurno.addProperty("tipo", "cambio_turno");
+        cambioTurno.addProperty("jugadorId", jugadorTurno.getId());
+        cambioTurno.addProperty("jugadorNombre", jugadorTurno.getNombre());
         
         cliente.getServidor().broadcastAPartida(
             partida.getId(),
-            notifGeneral.toString(),
+            cambioTurno.toString(),
             jugadorTurno.getSessionId()
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Notifica el estado actual del tablero a todos los jugadores
+     * El MODELO proporciona datos estructurados en JSON
+     * La VISTA del cliente los formatea
+     */
+    private void notificarEstadoTablero(Partida partida, ClienteHandler cliente) {
+        if (partida.getTablero() == null) {
+            return;
+        }
+        
+        // ✅ CORRECTO: El modelo genera JSON con datos estructurados
+        JsonObject estadoTablero = partida.getTablero().generarEstadoJSON();
+        
+        JsonObject notificacion = new JsonObject();
+        notificacion.addProperty("tipo", "estado_tablero");
+        notificacion.add("tablero", estadoTablero); // ✅ add() para JsonObject, no addProperty()
+        
+        cliente.getServidor().broadcastAPartida(
+            partida.getId(),
+            notificacion.toString(),
+            null // Enviar a todos
         );
     }
     

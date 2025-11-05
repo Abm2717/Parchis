@@ -1,6 +1,4 @@
-// ========================================
-// GESTORMOTORES.JAVA
-// ========================================
+
 package modelo.servicios;
 
 import modelo.partida.Partida;
@@ -16,8 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Reutilizar motores existentes (mantiene estado)
  * - Limpiar motores de partidas finalizadas
  * 
- * Patrón: Singleton + Factory
- * Thread-safe mediante ConcurrentHashMap
  */
 public class GestorMotores {
     
@@ -26,16 +22,13 @@ public class GestorMotores {
     // Mapa de motores: partidaId -> MotorJuego
     private final Map<Integer, MotorJuego> motoresPorPartida;
     
-    // ============================
-    // CONSTRUCTOR PRIVADO (SINGLETON)
-    // ============================
-    
+       
     private GestorMotores() {
         this.motoresPorPartida = new ConcurrentHashMap<>();
     }
     
     /**
-     * Obtiene la instancia única del gestor (Singleton).
+     * Obtiene la instancia unica del gestor (Singleton).
      */
     public static synchronized GestorMotores getInstancia() {
         if (instancia == null) {
@@ -44,13 +37,9 @@ public class GestorMotores {
         return instancia;
     }
     
-    // ============================
-    // GESTIÓN DE MOTORES
-    // ============================
-    
     /**
      * Obtiene el motor de juego para una partida.
-     * Si no existe, lo crea automáticamente.
+     * Si no existe, lo crea automaticamente.
      * 
      * @param partida Partida para la cual obtener el motor
      * @return MotorJuego asociado a la partida
@@ -64,7 +53,7 @@ public class GestorMotores {
         return motoresPorPartida.computeIfAbsent(
             partida.getId(), 
             id -> {
-                System.out.println("✓ Creando nuevo MotorJuego para partida " + id);
+                System.out.println("Creando nuevo MotorJuego para partida " + id);
                 return new MotorJuego(partida);
             }
         );
@@ -91,8 +80,8 @@ public class GestorMotores {
     }
     
     /**
-     * Crea o reemplaza un motor para una partida específica.
-     * Útil para reiniciar el estado del juego.
+     * Crea o reemplaza un motor para una partida especifica.
+     * util para reiniciar el estado del juego.
      * 
      * @param partida Partida para la cual crear el motor
      * @return Nuevo MotorJuego creado
@@ -102,7 +91,7 @@ public class GestorMotores {
             throw new IllegalArgumentException("La partida no puede ser null");
         }
         
-        System.out.println("✓ Creando/reemplazando MotorJuego para partida " + partida.getId());
+        System.out.println("Creando/reemplazando MotorJuego para partida " + partida.getId());
         
         MotorJuego nuevoMotor = new MotorJuego(partida);
         motoresPorPartida.put(partida.getId(), nuevoMotor);
@@ -119,13 +108,13 @@ public class GestorMotores {
      * Debe llamarse cuando una partida termina.
      * 
      * @param partidaId ID de la partida
-     * @return true si se removió, false si no existía
+     * @return true si se removio, false si no existia
      */
     public boolean removerMotor(int partidaId) {
         MotorJuego removido = motoresPorPartida.remove(partidaId);
         
         if (removido != null) {
-            System.out.println("✓ Motor removido para partida " + partidaId);
+            System.out.println("Motor removido para partida " + partidaId);
             return true;
         }
         
@@ -134,17 +123,17 @@ public class GestorMotores {
     
     /**
      * Limpia todos los motores.
-     * Útil para reiniciar el servidor o en testing.
+     * util para reiniciar el servidor o en testing.
      */
     public synchronized void limpiarTodos() {
         int cantidad = motoresPorPartida.size();
         motoresPorPartida.clear();
-        System.out.println("✓ Limpiados " + cantidad + " motores de juego");
+        System.out.println("Limpiados " + cantidad + " motores de juego");
     }
     
     /**
      * Limpia motores de partidas finalizadas.
-     * Debe ejecutarse periódicamente para liberar memoria.
+     * Debe ejecutarse periodicamente para liberar memoria.
      */
     public void limpiarMotoresFinalizados() {
         PersistenciaServicio persistencia = PersistenciaServicio.getInstancia();
@@ -153,12 +142,12 @@ public class GestorMotores {
             int partidaId = entry.getKey();
             Partida partida = persistencia.obtenerPartida(partidaId);
             
-            // Remover si la partida no existe o está finalizada
+            // Remover si la partida no existe o esta finalizada
             if (partida == null || 
                 partida.getEstado() == modelo.partida.EstadoPartida.FINALIZADA ||
                 partida.getEstado() == modelo.partida.EstadoPartida.CANCELADA) {
                 
-                System.out.println("✓ Limpiando motor de partida finalizada: " + partidaId);
+                System.out.println("Limpiando motor de partida finalizada: " + partidaId);
                 return true;
             }
             
@@ -166,19 +155,16 @@ public class GestorMotores {
         });
     }
     
-    // ============================
-    // CONSULTAS
-    // ============================
-    
+  
     /**
-     * Obtiene el número de motores activos.
+     * Obtiene el numero de motores activos.
      */
     public int getTotalMotores() {
         return motoresPorPartida.size();
     }
     
     /**
-     * Obtiene información de un motor específico.
+     * Obtiene informacion de un motor especifico.
      */
     public String getInfoMotor(int partidaId) {
         MotorJuego motor = motoresPorPartida.get(partidaId);
@@ -186,7 +172,7 @@ public class GestorMotores {
             return "Motor no encontrado para partida " + partidaId;
         }
         
-        // Aquí podrías agregar más detalles del motor si MotorJuego tiene métodos de info
+        // Aqui podrias agregar mas detalles del motor si MotorJuego tiene metodos de info
         return String.format("Motor[partidaId=%d, existe=true]", partidaId);
     }
     
@@ -197,16 +183,13 @@ public class GestorMotores {
         return new java.util.HashSet<>(motoresPorPartida.keySet());
     }
     
-    // ============================
-    // UTILIDADES DE DEBUGGING
-    // ============================
-    
+ 
     /**
-     * Imprime estadísticas del gestor.
+     * Imprime estadisticas del gestor.
      */
     public void imprimirEstadisticas() {
         System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║   ESTADÍSTICAS GESTOR DE MOTORES      ║");
+        System.out.println("║   ESTADISTICAS GESTOR DE MOTORES      ║");
         System.out.println("╚════════════════════════════════════════╝");
         System.out.println("Motores activos:     " + motoresPorPartida.size());
         System.out.println("Partidas con motor:  " + motoresPorPartida.keySet());

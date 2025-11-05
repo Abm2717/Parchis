@@ -10,8 +10,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Vista para el servidor - Muestra información en consola del servidor.
- * Utiliza solo caracteres ASCII estándar para compatibilidad.
+ * Vista para el servidor - Muestra informacion en consola del servidor.
  */
 public class VistaServidor {
     
@@ -22,9 +21,7 @@ public class VistaServidor {
     private static final DateTimeFormatter formatter = 
         DateTimeFormatter.ofPattern("HH:mm:ss");
     
-    // ============================
-    // MENSAJES DE INICIO/FIN
-    // ============================
+
     
     /**
      * Muestra banner de inicio del servidor.
@@ -49,11 +46,7 @@ public class VistaServidor {
         System.out.println("*        DETENIENDO SERVIDOR...                *");
         System.out.println(SEPARADOR_DOBLE);
     }
-    
-    // ============================
-    // CONEXIONES
-    // ============================
-    
+
     /**
      * Muestra nueva conexión de cliente.
      */
@@ -67,7 +60,7 @@ public class VistaServidor {
     }
     
     /**
-     * Muestra desconexión de cliente.
+     * Muestra desconexion de cliente.
      */
     public static void mostrarDesconexion(String sessionId, String nombreJugador, int totalClientes) {
         System.out.println("\n[" + obtenerHoraActual() + "] DESCONEXION");
@@ -80,9 +73,6 @@ public class VistaServidor {
         System.out.println(SEPARADOR_FINO);
     }
     
-    // ============================
-    // REGISTRO Y SALAS
-    // ============================
     
     /**
      * Muestra registro de nuevo jugador.
@@ -97,7 +87,7 @@ public class VistaServidor {
     }
     
     /**
-     * Muestra creación de nueva sala.
+     * Muestra creacion de nueva sala.
      */
     public static void mostrarCreacionSala(Partida partida, Jugador creador) {
         System.out.println("\n[" + obtenerHoraActual() + "] SALA CREADA");
@@ -121,10 +111,6 @@ public class VistaServidor {
         System.out.println("  Color asignado: " + jugador.getColor());
         System.out.println(SEPARADOR_FINO);
     }
-    
-    // ============================
-    // INICIO DE PARTIDA
-    // ============================
     
     /**
      * Muestra inicio de partida con todos los jugadores.
@@ -154,9 +140,6 @@ public class VistaServidor {
         System.out.println(SEPARADOR_DOBLE + "\n");
     }
     
-    // ============================
-    // ACCIONES DE JUEGO
-    // ============================
     
     /**
      * Muestra tirada de dados.
@@ -239,7 +222,7 @@ public class VistaServidor {
     }
     
     /**
-     * Muestra pérdida de ficha por 3 dobles.
+     * Muestra perdida de ficha por 3 dobles.
      */
     public static void mostrarFichaPerdida(Jugador jugador) {
         System.out.println("\n[" + obtenerHoraActual() + "] ** PENALIZACION **");
@@ -251,9 +234,6 @@ public class VistaServidor {
         System.out.println(SEPARADOR_GRUESO);
     }
     
-    // ============================
-    // CAMBIO DE TURNO
-    // ============================
     
     /**
      * Muestra cambio de turno.
@@ -267,10 +247,6 @@ public class VistaServidor {
         System.out.println("  Turno actual: " + jugadorActual.getNombre() + " [" + jugadorActual.getColor() + "]");
         System.out.println(SEPARADOR_FINO);
     }
-    
-    // ============================
-    // FIN DE PARTIDA
-    // ============================
     
     /**
      * Muestra ganador de la partida.
@@ -313,12 +289,9 @@ public class VistaServidor {
         System.out.println(SEPARADOR_DOBLE + "\n");
     }
     
-    // ============================
-    // ESTADISTICAS
-    // ============================
     
     /**
-     * Muestra estadísticas del servidor.
+     * Muestra estadisticas del servidor.
      */
     public static void mostrarEstadisticas(int clientes, int partidas, int jugadores) {
         System.out.println("\n" + SEPARADOR_DOBLE);
@@ -354,13 +327,7 @@ public class VistaServidor {
         System.out.println(SEPARADOR_FINO);
     }
     
-    // ============================
-    // ERRORES
-    // ============================
-    
-    /**
-     * Muestra error genérico.
-     */
+
     public static void mostrarError(String contexto, String mensaje) {
         System.err.println("\n[" + obtenerHoraActual() + "] ** ERROR **");
         System.err.println(SEPARADOR_FINO);
@@ -369,10 +336,6 @@ public class VistaServidor {
         System.err.println(SEPARADOR_FINO);
     }
     
-    // ============================
-    // UTILIDADES
-    // ============================
-    
     /**
      * Obtiene la hora actual formateada.
      */
@@ -380,19 +343,14 @@ public class VistaServidor {
         return LocalDateTime.now().format(formatter);
     }
     
-    /**
-     * Muestra mensaje genérico con formato.
-     */
-    public static void mostrarMensaje(String titulo, String mensaje) {
+       public static void mostrarMensaje(String titulo, String mensaje) {
         System.out.println("\n[" + obtenerHoraActual() + "] " + titulo);
         System.out.println(SEPARADOR_FINO);
         System.out.println("  " + mensaje);
         System.out.println(SEPARADOR_FINO);
     }
     
-    /**
-     * Muestra línea simple con timestamp.
-     */
+      
     public static void log(String mensaje) {
         System.out.println("[" + obtenerHoraActual() + "] " + mensaje);
     }

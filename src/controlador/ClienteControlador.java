@@ -90,10 +90,7 @@ public class ClienteControlador {
             return false;
         }
     }
-    
-    // ============================
-    // PROCESAMIENTO DE MENSAJES
-    // ============================
+
     
     private void procesarMensajeServidor(String mensajeJson) {
         try {
@@ -136,7 +133,7 @@ public class ClienteControlador {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    // Llamar en un thread separado para no bloquear
+                    
                     new Thread(() -> {
                         try {
                             Thread.sleep(500);
@@ -152,16 +149,16 @@ public class ClienteControlador {
                     vista.notificarTurno();
                     break;
                     
-                // ✅ NUEVO: Manejo de cambio de turno
+                // Manejo de cambio de turno
                 case "cambio_turno":
                     esmiTurno = false;
                     String nombreTurno = json.get("jugadorNombre").getAsString();
                     vista.mostrarCambioTurno(nombreTurno);
                     break;
                     
-                // ✅ NUEVO: Manejo de estado del tablero
+                //Manejo de estado del tablero
                 case "estado_tablero":
-                    JsonObject tableroJson = json.getAsJsonObject("tablero"); // ✅ CORRECTO: getAsJsonObject
+                    JsonObject tableroJson = json.getAsJsonObject("tablero"); 
                     vista.mostrarEstadoTablero(tableroJson);
                     break;
                     
@@ -219,13 +216,13 @@ public class ClienteControlador {
                     responderPong();
                     break;
                     
-                // Ignorar mensajes de confirmación
+                
                 case "listo_confirmado":
                 case "exito":
                     break;
                     
                 default:
-                    // Silencioso - no mostrar mensajes desconocidos
+                    
                     break;
             }
             
@@ -239,10 +236,6 @@ public class ClienteControlador {
         pong.addProperty("tipo", "pong");
         enviarMensaje(pong);
     }
-    
-    // ============================
-    // ACCIONES
-    // ============================
     
     public boolean registrar(String nombre) {
         JsonObject mensaje = new JsonObject();
@@ -298,7 +291,7 @@ public class ClienteControlador {
         return enviarMensaje(mensaje);
     }
     
-    // ✅ NUEVO: Saltar turno
+    //Teemporal
     public boolean saltarTurno() {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "saltar_turno");
@@ -317,10 +310,7 @@ public class ClienteControlador {
         enviarMensaje(mensaje);
     }
     
-    // ============================
-    // CONSULTAS
-    // ============================
-    
+     
     public boolean esmiTurno() {
         return esmiTurno;
     }

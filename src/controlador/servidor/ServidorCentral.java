@@ -20,19 +20,18 @@ import modelo.servicios.GestorMotores;
 import vista.VistaServidor;
 
 /**
- * Servidor central del juego de Parchís.
+ * Servidor central del juego de Parchis.
  * 
  * Responsabilidades:
- * - Aceptar conexiones de clientes
- * - Crear y gestionar ClienteHandlers
- * - Coordinar broadcast de mensajes
- * - Gestionar desconexiones
+ * Aceptar conexiones de clientes
+ * Crear y gestionar ClienteHandlers
+ * Coordinar broadcast de mensajes
+ * Gestionar desconexiones
  * 
- * Thread-safe y soporta múltiples clientes concurrentes.
  */
 public class ServidorCentral {
     
-    // Configuración del servidor
+    // Configuracion del servidor
     private static final int PUERTO_DEFAULT = 5000;
     private static final int MAX_CLIENTES = 50;
     
@@ -51,16 +50,13 @@ public class ServidorCentral {
     private final PersistenciaServicio persistencia;
     private final SalaServicio salaServicio;
     
-    // Contador para IDs de sesión
+    // Contador para IDs de sesion
     private int contadorSesiones;
     
-    // Limpieza automática
+    // Limpieza automatica
     private ScheduledExecutorService schedulerLimpieza;
     
-    // ============================
-    // CONSTRUCTORES
-    // ============================
-    
+
     public ServidorCentral() {
         this(PUERTO_DEFAULT);
     }
@@ -82,10 +78,6 @@ public class ServidorCentral {
     
     
     
-    // ============================
-    // INICIO Y DETENCIÓN
-    // ============================
-    
     /**
      * Inicia el servidor y comienza a aceptar conexiones.
      */
@@ -103,7 +95,7 @@ public class ServidorCentral {
                     manejarNuevaConexion(socketCliente);
                 } catch (IOException e) {
                     if (ejecutando) {
-                        System.err.println("Error aceptando conexión: " + e.getMessage());
+                        System.err.println("Error aceptando conexion: " + e.getMessage());
                     }
                 }
             }
@@ -132,7 +124,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Detención interna con limpieza completa.
+     * Detencion interna con limpieza completa.
      */
     private void detenerInterno() {
         VistaServidor.mostrarCierreServidor();
@@ -166,17 +158,13 @@ public class ServidorCentral {
         
         System.out.println("Servidor detenido.");
     }
-    
-    // ============================
-    // GESTIÓN DE CLIENTES
-    // ============================
-    
+
     /**
-     * Maneja una nueva conexión de cliente.
+     * Maneja una nueva conexion de cliente.
      */
     private void manejarNuevaConexion(Socket socketCliente) {
         try {
-            // Generar session ID único
+            // Generar session ID unico
             String sessionId = generarSessionId();
             
             // Crear el handler para este cliente
@@ -195,7 +183,7 @@ public class ServidorCentral {
             );
             
         } catch (Exception e) {
-            System.err.println("Error manejando nueva conexión: " + e.getMessage());
+            System.err.println("Error manejando nueva conexion: " + e.getMessage());
         }
     }
     
@@ -242,13 +230,9 @@ public class ServidorCentral {
     public List<ClienteHandler> getClientesConectados() {
         return new ArrayList<>(clientesConectados.values());
     }
-    
-    // ============================
-    // BROADCAST DE MENSAJES
-    // ============================
-    
+
     /**
-     * Envía un mensaje a todos los clientes conectados.
+     * Envia un mensaje a todos los clientes conectados.
      */
     public void broadcastATodos(String mensaje) {
         for (ClienteHandler cliente : clientesConectados.values()) {
@@ -257,7 +241,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Envía un mensaje a todos los clientes excepto uno.
+     * Envia un mensaje a todos los clientes excepto uno.
      */
     public void broadcastExcepto(String mensaje, String sessionIdExcluido) {
         for (Map.Entry<String, ClienteHandler> entry : clientesConectados.entrySet()) {
@@ -268,7 +252,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Envía un mensaje a todos los jugadores de una partida.
+     * Envia un mensaje a todos los jugadores de una partida.
      */
     public void broadcastAPartida(int partidaId, String mensaje, String sessionIdExcluido) {
         modelo.partida.Partida partida = persistencia.obtenerPartida(partidaId);
@@ -286,18 +270,14 @@ public class ServidorCentral {
     }
     
     /**
-     * Envía un mensaje a todos los jugadores de una partida (sin excluir ninguno).
+     * Envia un mensaje a todos los jugadores de una partida (sin excluir ninguno).
      */
     public void broadcastAPartida(int partidaId, String mensaje) {
         broadcastAPartida(partidaId, mensaje, null);
     }
-    
-    // ============================
-    // UTILIDADES
-    // ============================
-    
+
     /**
-     * Genera un session ID único.
+     * Genera un session ID unico.
      */
     private synchronized String generarSessionId() {
         contadorSesiones++;
@@ -305,7 +285,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Crea un mensaje JSON de desconexión.
+     * Crea un mensaje JSON de desconexion.
      */
     private String crearMensajeDesconexion(modelo.Jugador.Jugador jugador) {
         return String.format(
@@ -316,21 +296,21 @@ public class ServidorCentral {
     }
     
     /**
-     * Verifica si el servidor está ejecutando.
+     * Verifica si el servidor esta ejecutando.
      */
     public boolean estaEjecutando() {
         return ejecutando;
     }
     
     /**
-     * Obtiene el número de clientes conectados.
+     * Obtiene el numero de clientes conectados.
      */
     public int getNumeroClientesConectados() {
         return clientesConectados.size();
     }
     
     /**
-     * Obtiene información del servidor.
+     * Obtiene informacion del servidor.
      */
     public String getEstado() {
         return String.format(
@@ -343,7 +323,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Muestra estadísticas del servidor.
+     * Muestra estadisticas del servidor.
      */
     public void mostrarEstadisticas() {
         VistaServidor.mostrarEstadisticas(
@@ -354,7 +334,7 @@ public class ServidorCentral {
     }
     
     /**
-     * Inicia limpieza automática de motores (opcional).
+     * Inicia limpieza automatica de motores (opcional).
      */
     private void iniciarLimpiezaAutomatica() {
         schedulerLimpieza = Executors.newScheduledThreadPool(1);

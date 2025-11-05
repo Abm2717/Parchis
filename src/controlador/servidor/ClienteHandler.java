@@ -22,7 +22,7 @@ public class ClienteHandler implements Runnable {
     private final PersistenciaServicio persistencia;
     private boolean conectado;
     
-    // ✅ NUEVO: Flag para ocultar mensajes de debug
+    // Flag para ocultar mensajes de debug
     private static final boolean MODO_DEBUG = true;
     
     public ClienteHandler(Socket socket, String sessionId, ServidorCentral servidor) {
@@ -89,7 +89,7 @@ public class ClienteHandler implements Runnable {
                 System.out.println("-> [" + sessionId + "] procesando mensaje: " + truncar(mensajeJson, 200));
             }
 
-            // Log específico para 'listo' (útil)
+            // Log especifico para 'listo' (util)
             if (mensajeJson.contains("\"tipo\":\"listo\"") || mensajeJson.trim().equalsIgnoreCase("listo")) {
                 System.out.println("[DEBUG] [" + sessionId + "] se solicito marcar listo.");
             }
@@ -188,10 +188,27 @@ public class ClienteHandler implements Runnable {
     }
     
     // Getters
-    public String getSessionId() { return sessionId; }
-    public Jugador getJugador() { return jugador; }
-    public void setJugador(Jugador jugador) { this.jugador = jugador; }
-    public boolean isConectado() { return conectado; }
-    public ServidorCentral getServidor() { return servidor; }
-    public Socket getSocket() { return socket; }
+    public String getSessionId() { 
+        return sessionId; 
+    }
+    
+    public Jugador getJugador() { 
+        return jugador; 
+    }
+    
+    public void setJugador(Jugador jugador) { 
+        this.jugador = jugador; 
+    }
+    
+    public boolean isConectado() { 
+        return conectado; 
+    }
+    
+    public ServidorCentral getServidor() { 
+        return servidor; 
+    }
+    
+    public Socket getSocket() { 
+        return socket; 
+    }
 }

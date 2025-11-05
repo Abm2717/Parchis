@@ -47,8 +47,7 @@ public class Jugador {
     public boolean isConectado() { return conectado; }
     public void setConectado(boolean conectado) { this.conectado = conectado; }
 
-    // ✅ NUEVO: Convertir ColorJugador a ColorCasilla (necesario para Tablero)
-    /**
+     /**
      * Convierte el color del jugador al color de casilla correspondiente.
      * Necesario para que Tablero pueda identificar casillas de salida y pasillos.
      */
@@ -64,7 +63,7 @@ public class Jugador {
         }
     }
 
-    // Gestión de fichas
+    // Gestion de fichas
     public void agregarFicha(Ficha ficha) {
         if (ficha != null) {
             fichas.add(ficha);
@@ -95,7 +94,7 @@ public class Jugador {
     }
 
     /**
-     * ✅ NUEVO: Cuenta cuántas fichas están en meta.
+     *Cuenta cuantas fichas estan en meta.
      */
     public int contarFichasEnMeta() {
         return (int) fichas.stream()

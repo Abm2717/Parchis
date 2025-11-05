@@ -6,8 +6,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
- * Menú principal del juego - Punto de entrada único.
- * Permite elegir entre ser HOST (crear partida) o CLIENTE (unirse a partida).
+ * Menu principal del juego.
+ * Se crea o une a una partida
  */
 public class MenuPrincipal {    
     
@@ -22,7 +22,7 @@ public class MenuPrincipal {
     }
     
     /**
-     * Inicia el menú principal.
+     * Inicia el menu principal.
      */
     public void iniciar() {
         mostrarBanner();
@@ -62,14 +62,14 @@ public class MenuPrincipal {
         System.out.println("\n" + SEPARADOR_DOBLE);
         System.out.println("*                                              *");
         System.out.println("*              JUEGO DE PARCHIS                *");
-        System.out.println("*                  v1.0                        *");
+        System.out.println("*                  v1.3                        *");
         System.out.println("*                                              *");
         System.out.println(SEPARADOR_DOBLE);
         System.out.println();
     }
     
     /**
-     * Muestra el menú principal y captura la opción.
+     * Muestra el menu principal y captura la opcion.
      */
     private int mostrarMenuPrincipal() {
         System.out.println("\n" + SEPARADOR);
@@ -88,10 +88,7 @@ public class MenuPrincipal {
         }
     }
     
-    // ============================
-    // OPCIÓN 1: CREAR PARTIDA (HOST)
-    // ============================
-    
+    //Opcion 1
     /**
      * Crea una partida (inicia servidor y se conecta automáticamente).
      */
@@ -136,7 +133,7 @@ public class MenuPrincipal {
         Thread hiloServidor = new Thread(() -> {
             servidor.iniciar();
         });
-        hiloServidor.setDaemon(false); // Mantener servidor vivo
+        hiloServidor.setDaemon(false); 
         hiloServidor.start();
         
         // Esperar a que el servidor esté listo
@@ -149,7 +146,6 @@ public class MenuPrincipal {
         // Mostrar información de conexión
         mostrarInformacionConexion(puerto);
         
-        // Ahora conectarse como cliente al servidor local
         System.out.println("\n  Conectandote a tu servidor...");
         
         try {
@@ -161,29 +157,25 @@ public class MenuPrincipal {
         // Iniciar cliente y conectarse automáticamente
         VistaCliente vistaCliente = new VistaCliente();
         
-        // Conectar a localhost
+        
         if (vistaCliente.conectarAlServidor("localhost", puerto)) {
-            // Registrar jugador
+            
             if (vistaCliente.registrarJugadorAutomatico(nombreJugador)) {
-                // Crear sala automáticamente
+            
                 if (vistaCliente.crearSalaAutomatica(nombrePartida, maxJugadores)) {
                     System.out.println("\n  Partida creada exitosamente!");
                     System.out.println("  Esperando a que otros jugadores se unan...");
                     
-                    // Iniciar loop del cliente
                     vistaCliente.iniciarLoopCliente();
                 }
             }
         }
         
-        // Al terminar, detener servidor
-//        if (servidor != null) {
-//            servidor.detener();
-//        }
     }
     
+    //Opcion 2
     /**
-     * Muestra información para que otros se conecten.
+     * Muestra informacion para que otros se conecten.
      */
     private void mostrarInformacionConexion(int puerto) {
         System.out.println(SEPARADOR);
@@ -210,10 +202,7 @@ public class MenuPrincipal {
         System.out.println(SEPARADOR);
     }
     
-    // ============================
-    // OPCIÓN 2: UNIRSE A PARTIDA
-    // ============================
-    
+ 
     /**
      * Une a un jugador a una partida existente.
      */
@@ -230,7 +219,7 @@ public class MenuPrincipal {
             return;
         }
         
-        // Solicitar datos de conexión
+        // Solicitar datos de conexion
         System.out.println("\n  Ingresa los datos de conexion:");
         System.out.print("  IP del servidor: ");
         String ip = scanner.nextLine().trim();
@@ -249,10 +238,9 @@ public class MenuPrincipal {
         
         if (vistaCliente.conectarAlServidor(ip, puerto)) {
             if (vistaCliente.registrarJugadorAutomatico(nombreJugador)) {
-                // Mostrar opciones de unión
+                
                 vistaCliente.menuUnirsePartida();
                 
-                // Iniciar loop del cliente
                 vistaCliente.iniciarLoopCliente();
             }
         } else {
@@ -261,13 +249,6 @@ public class MenuPrincipal {
         }
     }
     
-    // ============================
-    // MAIN
-    // ============================
-    
-    /**
-     * Punto de entrada del programa.
-     */
     public static void main(String[] args) {
         MenuPrincipal menu = new MenuPrincipal();
         menu.iniciar();

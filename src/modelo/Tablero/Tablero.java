@@ -12,55 +12,48 @@ import java.util.HashMap;
 import java.util.stream.Collectors;
 
 /**
- * Tablero de Parchís con métodos extendidos para el MotorJuego.
+ * Tablero de Parchis con metodos extendidos para el MotorJuego.
  * 
  * Estructura del tablero (68 casillas normales + 8 metas):
  * - Casillas 1-68: recorrido principal circular
  * - Casillas 69-72: pasillo/meta ROJO
  * - Casillas 73-76: pasillo/meta AZUL
- * - (Agregar 77-80 AMARILLO y 81-84 VERDE según necesites)
+ * - (Agregar 77-80 AMARILLO y 81-84 VERDE segun necesites)
  */
 public class Tablero {
     
-    // Constantes del tablero
     private static final int CASILLAS_NORMALES = 68;
     private static final int CASILLAS_POR_PASILLO = 4;
-    
-    // Puntos de inicio para cada color
-    private static final Map<ColorCasilla, Integer> CASILLAS_SALIDA = new HashMap<>() {{
+        private static final Map<ColorCasilla, Integer> CASILLAS_SALIDA = new HashMap<>() {{
         put(ColorCasilla.ROJO, 1);
         put(ColorCasilla.AZUL, 18);
-        put(ColorCasilla.AMARILLO, 35);  // Ajustar según tu diseño
-        put(ColorCasilla.VERDE, 52);     // Ajustar según tu diseño
+        put(ColorCasilla.AMARILLO, 35);  
+        put(ColorCasilla.VERDE, 52);     
     }};
-    
-    // Primer casilla del pasillo a meta para cada color
-    private static final Map<ColorCasilla, Integer> ENTRADA_PASILLO = new HashMap<>() {{
+        private static final Map<ColorCasilla, Integer> ENTRADA_PASILLO = new HashMap<>() {{
         put(ColorCasilla.ROJO, 69);
         put(ColorCasilla.AZUL, 73);
         put(ColorCasilla.AMARILLO, 77);
         put(ColorCasilla.VERDE, 81);
-    }};
-    
-    // Casilla segura antes de entrar al pasillo
+    }};  
     private static final Map<ColorCasilla, Integer> CASILLA_ENTRADA_META = new HashMap<>() {{
-        put(ColorCasilla.ROJO, 68);   // Última casilla antes del pasillo rojo
-        put(ColorCasilla.AZUL, 17);   // Última casilla antes del pasillo azul
+        put(ColorCasilla.ROJO, 68);   // ultima casilla antes del pasillo rojo
+        put(ColorCasilla.AZUL, 17);   // ultima casilla antes del pasillo azul
         put(ColorCasilla.AMARILLO, 34);
         put(ColorCasilla.VERDE, 51);
     }};
     
     private List<Casilla> casillas;
-    private Map<Integer, Jugador> jugadorPorId;  // Para lookup rápido
+    private Map<Integer, Jugador> jugadorPorId; 
     
-    // Constructor
+    
     public Tablero() {
         casillas = new ArrayList<>();
         jugadorPorId = new HashMap<>();
         inicializarCasillas();
     }
     
-    // Inicializar casillas
+   
     public void inicializarCasillas() {
         casillas = new ArrayList<>();
         
@@ -80,19 +73,12 @@ public class Tablero {
         for (int i = 73; i <= 76; i++) {
             casillas.add(new Casilla(i, 0, ColorCasilla.AZUL, TipoCasilla.META, 1));
         }
-        
-        // Si tienes 4 jugadores, agregar pasillos amarillo y verde
-        // for (int i = 77; i <= 80; i++) {
-        //     casillas.add(new Casilla(i, 0, ColorCasilla.AMARILLO, TipoCasilla.META, 1));
-        // }
-        // for (int i = 81; i <= 84; i++) {
-        //     casillas.add(new Casilla(i, 0, ColorCasilla.VERDE, TipoCasilla.META, 1));
-        // }
+  
     }
     
     /**
-     * Determina el tipo de casilla según su posición.
-     * Casillas seguras típicamente cada 12 posiciones + casillas de salida.
+     * Determina el tipo de casilla segun su posicion.
+     * Casillas seguras tipicamente cada 12 posiciones + casillas de salida.
      */
     private TipoCasilla determinarTipoCasilla(int posicion) {
         // Casillas de inicio/salida
@@ -101,7 +87,7 @@ public class Tablero {
         }
         
         // Casillas seguras (ejemplo: cada 12 casillas hay una segura)
-        // Ajusta según tu diseño específico
+        // Ajusta segun tu diseño especifico
         if (posicion % 12 == 5) {  // Por ejemplo: 5, 17, 29, 41, 53, 65
             return TipoCasilla.SEGURA;
         }
@@ -113,8 +99,7 @@ public class Tablero {
      * Determina el color de una casilla (para pasillos y casillas especiales).
      */
     private ColorCasilla determinarColorCasilla(int posicion) {
-        // Las casillas normales no tienen color específico
-        // Solo las de salida y pasillos tienen color
+  
         for (Map.Entry<ColorCasilla, Integer> entry : CASILLAS_SALIDA.entrySet()) {
             if (entry.getValue() == posicion) {
                 return entry.getKey();
@@ -122,10 +107,6 @@ public class Tablero {
         }
         return ColorCasilla.NINGUNO;
     }
-    
-    // ============================
-    // MÉTODOS REQUERIDOS POR MOTORJUEGO
-    // ============================
     
     /**
      * Calcula la casilla destino tras mover N pasos desde origen.
@@ -139,7 +120,7 @@ public class Tablero {
         
         ColorCasilla colorJugador = jugador.getColorCasilla();
         
-        // Si está en pasillo, moverse dentro del pasillo
+        // Si esta en pasillo, moverse dentro del pasillo
         if (indiceOrigen >= 69) {
             return calcularEnPasillo(indiceOrigen, pasos, colorJugador);
         }
@@ -172,7 +153,7 @@ public class Tablero {
         
         int nuevaPosicion = indiceActual + pasos;
         
-        // No puede pasar de la última casilla del pasillo
+        // No puede pasar de la ultima casilla del pasillo
         if (nuevaPosicion > ultimaCasillaPasillo) {
             throw new IllegalArgumentException(
                 "Movimiento excede el final del pasillo. Necesitas valor exacto."
@@ -191,7 +172,6 @@ public class Tablero {
             throw new IllegalArgumentException("Jugador no encontrado: " + jugadorId);
         }
 
-        // ✅ USAR getColorCasilla() en lugar de getColor()
         ColorCasilla colorCasilla = jugador.getColorCasilla();
         Integer indiceSalida = CASILLAS_SALIDA.get(colorCasilla);
 
@@ -213,7 +193,6 @@ public class Tablero {
         Jugador jugador = jugadorPorId.get(jugadorId);
         if (jugador == null) return false;
 
-        // ✅ USAR getColorCasilla()
         ColorCasilla colorCasilla = jugador.getColorCasilla();
         Integer primerCasillaPasillo = ENTRADA_PASILLO.get(colorCasilla);
 
@@ -224,7 +203,7 @@ public class Tablero {
     }
     
     /**
-     * Busca una ficha rival en una casilla específica.
+     * Busca una ficha rival en una casilla especifica.
      */
     public Ficha buscarFichaRivalEnCasilla(int indiceCasilla, int jugadorId) {
         Casilla casilla = getCasilla(indiceCasilla);
@@ -265,10 +244,10 @@ public class Tablero {
     }
     
     /**
-     * Obtiene el índice de la siguiente casilla en el recorrido.
+     * Obtiene el indice de la siguiente casilla en el recorrido.
      */
     private int siguienteCasilla(int actual) {
-        // Si está en pasillos, avanzar dentro del pasillo
+        // Si esta en pasillos, avanzar dentro del pasillo
         if (actual >= 69) {
             return actual + 1;
         }
@@ -295,7 +274,7 @@ public class Tablero {
         Map<Integer, Long> fichasPorJugador = fichas.stream()
             .collect(Collectors.groupingBy(Ficha::getIdJugador, Collectors.counting()));
         
-        // Hay barrera si algún jugador tiene 2+ fichas
+        // Hay barrera si algun jugador tiene 2+ fichas
         return fichasPorJugador.values().stream().anyMatch(count -> count >= 2);
     }
     
@@ -322,7 +301,7 @@ public class Tablero {
      * Intenta romper un bloqueo propio del jugador.
      * Mueve UNA de las fichas del bloqueo a la siguiente casilla disponible.
      * 
-     * @return true si se rompió un bloqueo, false si no había o no se pudo romper
+     * @return true si se rompio un bloqueo, false si no habia o no se pudo romper
      */
     public boolean romperBloqueoPropio(int jugadorId) {
         Jugador jugador = jugadorPorId.get(jugadorId);
@@ -368,7 +347,7 @@ public class Tablero {
     }
     
     /**
-     * Registra múltiples jugadores.
+     * Registra multiples jugadores.
      */
     public void registrarJugadores(List<Jugador> jugadores) {
         if (jugadores != null) {
@@ -376,15 +355,12 @@ public class Tablero {
         }
     }
     
-    // ============================
-    // MÉTODOS ORIGINALES (mantenidos)
-    // ============================
     
     public Casilla getCasilla(int indice) {
         if (indice < 1 || indice > casillas.size()) {
             return null;
         }
-        return casillas.get(indice - 1); // Convertir índice a posición en lista
+        return casillas.get(indice - 1); // Convertir indice a posicion en lista
     }
     
     public Casilla getCasillaPorIndice(int indice) {
@@ -410,7 +386,7 @@ public class Tablero {
     }
     
     /**
-     * Obtiene todas las fichas en una casilla específica.
+     * Obtiene todas las fichas en una casilla especifica.
      */
     public List<Ficha> getFichasEnCasilla(int indiceCasilla) {
         Casilla casilla = getCasilla(indiceCasilla);
@@ -423,7 +399,7 @@ public class Tablero {
     }
     
     /**
-     * Limpia el tablero (útil para reiniciar partida).
+     * Limpia el tablero.
      */
     public void limpiar() {
         for (Casilla casilla : casillas) {

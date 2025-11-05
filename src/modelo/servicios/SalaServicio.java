@@ -11,10 +11,9 @@ import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Servicio que gestiona las salas/partidas del juego.
- * Maneja la creación, unión, inicio y finalización de partidas.
+ * Servicio gestiona las salas/partidas del juego.
+ * Maneja la creacion, union, inicio y finalizacion de partidas.
  * 
- * Coordina entre PersistenciaServicio y la lógica de negocio.
  */
 public class SalaServicio {
     
@@ -22,22 +21,20 @@ public class SalaServicio {
     private final PersistenciaServicio persistencia;
     private final ReentrantLock lock;
     
-    // ✅ NUEVO ORDEN: Rojo → Amarillo → Verde → Azul
-    private static final ColorJugador[] COLORES_DISPONIBLES = {
+     private static final ColorJugador[] COLORES_DISPONIBLES = {
         ColorJugador.ROJO,
         ColorJugador.AMARILLO,
         ColorJugador.VERDE,
         ColorJugador.AZUL
     };
     
-    // Constructor privado (Singleton)
-    private SalaServicio() {
+       private SalaServicio() {
         this.persistencia = PersistenciaServicio.getInstancia();
         this.lock = new ReentrantLock();
     }
     
     /**
-     * Obtiene la instancia única del servicio.
+     * Obtiene la instancia unica del servicio.
      */
     public static synchronized SalaServicio getInstancia() {
         if (instancia == null) {
@@ -46,22 +43,18 @@ public class SalaServicio {
         return instancia;
     }
     
-    // ============================
-    // GESTIÓN DE SALAS/PARTIDAS
-    // ============================
-    
     /**
      * Crea una nueva sala/partida.
      * 
      * @param nombreSala Nombre de la sala
-     * @param maxJugadores Número máximo de jugadores (2-4)
+     * @param maxJugadores Numero maximo de jugadores (2-4)
      * @return La partida creada
      */
     public Partida crearSala(String nombreSala, int maxJugadores) {
         lock.lock();
         try {
             if (maxJugadores < 2 || maxJugadores > 4) {
-                throw new IllegalArgumentException("El número de jugadores debe ser entre 2 y 4");
+                throw new IllegalArgumentException("El numero de jugadores debe ser entre 2 y 4");
             }
             
             Partida partida = persistencia.crearPartida(nombreSala, maxJugadores);
@@ -78,11 +71,11 @@ public class SalaServicio {
     }
     
     /**
-     * Une un jugador a una partida específica.
+     * Une un jugador a una partida especifica.
      * 
      * @param jugadorId ID del jugador
      * @param partidaId ID de la partida
-     * @return true si se unió exitosamente
+     * @return true si se unio exitosamente
      */
     public boolean unirJugadorAPartida(int jugadorId, int partidaId) {
         lock.lock();
@@ -99,7 +92,7 @@ public class SalaServicio {
                 return false;
             }
             
-            // Validar que el jugador no esté en otra partida
+            // Validar que el jugador no este en otra partida
             if (persistencia.obtenerPartidaDeJugador(jugadorId).isPresent()) {
                 return false;
             }
@@ -131,10 +124,10 @@ public class SalaServicio {
     }
     
     /**
-     * Une un jugador a cualquier partida disponible o crea una nueva.
+     * Une un jugador a cualquier partida disponible.
      * 
      * @param jugadorId ID del jugador
-     * @return La partida a la que se unió
+     * @return La partida a la que se unio
      */
     public Partida unirJugadorAPartidaDisponible(int jugadorId) {
         lock.lock();
@@ -144,7 +137,6 @@ public class SalaServicio {
             
             Partida partida;
             if (disponibles.isEmpty()) {
-                // Crear nueva partida
                 partida = crearSala("Sala " + (persistencia.getTotalPartidas() + 1), 4);
             } else {
                 // Unirse a la primera disponible
@@ -166,7 +158,7 @@ public class SalaServicio {
      * Remueve un jugador de su partida actual.
      * 
      * @param jugadorId ID del jugador
-     * @return true si se removió exitosamente
+     * @return true si se removio exitosamente
      */
     public boolean removerJugadorDePartida(int jugadorId) {
         lock.lock();
@@ -187,7 +179,7 @@ public class SalaServicio {
             partida.removerJugador(jugadorId);
             persistencia.removerJugadorDePartida(jugadorId);
             
-            // Si la partida quedó vacía o está en progreso con pocos jugadores, finalizarla
+            // Si la partida quedo vacia o esta en progreso con pocos jugadores, finalizarla
             if (partida.getJugadores().isEmpty()) {
                 persistencia.eliminarPartida(partida.getId());
             } else if (partida.getEstado() == EstadoPartida.EN_PROGRESO && 
@@ -205,7 +197,7 @@ public class SalaServicio {
      * Marca un jugador como "listo" para iniciar la partida.
      * 
      * @param jugadorId ID del jugador
-     * @return true si se marcó exitosamente
+     * @return true si se marco exitosamente
      */
     public boolean marcarJugadorListo(int jugadorId) {
         lock.lock();
@@ -217,7 +209,7 @@ public class SalaServicio {
             
             jugador.setListo(true);
             
-            // Verificar si todos los jugadores están listos
+            // Verificar si todos los jugadores estan listos
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugadorId);
             if (partidaOpt.isPresent()) {
                 Partida partida = partidaOpt.get();
@@ -233,10 +225,10 @@ public class SalaServicio {
     }
     
     /**
-     * Inicia una partida (la pone en estado EN_PROGRESO).
+     * Inicia una partida.
      * 
      * @param partidaId ID de la partida
-     * @return true si se inició exitosamente
+     * @return true si se inicio exitosamente
      */
     public boolean iniciarPartida(int partidaId) {
         lock.lock();
@@ -272,7 +264,7 @@ public class SalaServicio {
      * Finaliza una partida.
      * 
      * @param partidaId ID de la partida
-     * @return true si se finalizó exitosamente
+     * @return true si se finalizo exitosamente
      */
     public boolean finalizarPartida(int partidaId) {
         lock.lock();
@@ -295,9 +287,6 @@ public class SalaServicio {
         }
     }
     
-    // ============================
-    // CONSULTAS
-    // ============================
     
     /**
      * Obtiene una partida por su ID.
@@ -307,7 +296,7 @@ public class SalaServicio {
     }
     
     /**
-     * Obtiene la partida en la que está un jugador.
+     * Obtiene la partida en la que esta un jugador.
      */
     public Optional<Partida> obtenerPartidaDeJugador(int jugadorId) {
         return persistencia.obtenerPartidaDeJugador(jugadorId);
@@ -327,13 +316,10 @@ public class SalaServicio {
         return persistencia.obtenerTodasLasPartidas();
     }
     
-    // ============================
-    // MÉTODOS AUXILIARES
-    // ============================
-    
+        
     /**
      * Asigna un color disponible a un jugador en una partida.
-     * Orden: Rojo → Amarillo → Verde → Azul
+     * Orden: Rojo,Amarillo,Verde,Azul
      */
     private ColorJugador asignarColorDisponible(Partida partida) {
         List<ColorJugador> coloresUsados = new ArrayList<>();
@@ -349,11 +335,11 @@ public class SalaServicio {
             }
         }
         
-        return null; // No hay colores disponibles
+        return null; 
     }
     
     /**
-     * Verifica si todos los jugadores de una partida están listos.
+     * Verifica si todos los jugadores de una partida estan listos.
      */
     private boolean todosJugadoresListos(Partida partida) {
         if (partida.getJugadores().isEmpty()) {

@@ -24,18 +24,46 @@ public class Casilla {
     }
 
     // Getters y setters originales
-    public int getIndice() { return indice; }
-    public void setIndice(int indice) { this.indice = indice; }
-    public int getPosicion() { return posicion; }
-    public void setPosicion(int posicion) { this.posicion = posicion; }
-    public ColorCasilla getColor() { return color; }
-    public TipoCasilla getTipo() { return tipo; }
-    public int getCapacidad() { return capacidad; }
-    public boolean isBloqueada() { return bloqueada; }
-    public void setBloqueada(boolean bloqueada) { this.bloqueada = bloqueada; }
-    public List<Ficha> getFichas() { return fichas; }
+    public int getIndice(){ 
+        return indice; 
+    }
+    
+    public void setIndice(int indice){
+        this.indice = indice; 
+    }
+    
+    public int getPosicion() { 
+        return posicion; 
+    }
+    
+    public void setPosicion(int posicion) { 
+        this.posicion = posicion; 
+    }
+    
+    public ColorCasilla getColor() {
+        return color; 
+    }
+    
+    public TipoCasilla getTipo() { 
+        return tipo; 
+    }
+    
+    public int getCapacidad() { 
+        return capacidad; 
+    }
+    
+    public boolean isBloqueada() { 
+        return bloqueada; 
+    }
+    
+    public void setBloqueada(boolean bloqueada) {
+        this.bloqueada = bloqueada; 
+    }
+    
+    public List<Ficha> getFichas() { 
+        return fichas; 
+    }
 
-    // ✅ Métodos requeridos por MotorJuego
     
     /**
      * Verifica si esta casilla es segura (no permite capturas).

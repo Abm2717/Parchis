@@ -13,13 +13,6 @@ import vista.VistaServidor;
 
 /**
  * Controlador para manejar movimientos de fichas.
- * 
- * Responsabilidades:
- * - Validar movimientos de fichas
- * - Ejecutar movimientos mediante MotorJuego
- * - Gestionar uso de movimientos bonus
- * - Notificar movimientos a todos los jugadores
- * - Detectar capturas y llegadas a meta
  */
 public class CtrlMoverFicha {
     
@@ -28,17 +21,13 @@ public class CtrlMoverFicha {
     public CtrlMoverFicha() {
         this.persistencia = PersistenciaServicio.getInstancia();
     }
-    
-    // ============================
-    // MOVER FICHA NORMAL
-    // ============================
-    
+ 
     /**
      * Ejecuta un movimiento normal de ficha.
      * 
      * @param cliente ClienteHandler del jugador
      * @param fichaId ID de la ficha a mover
-     * @param pasos Número de casillas a mover
+     * @param pasos Numero de casillas a mover
      * @return Respuesta JSON
      */
     public String ejecutar(ClienteHandler cliente, int fichaId, int pasos) {
@@ -52,14 +41,14 @@ public class CtrlMoverFicha {
             // Obtener partida
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
-                return crearError("No estás en ninguna partida");
+                return crearError("No estas en ninguna partida");
             }
             
             Partida partida = partidaOpt.get();
             
             // Validar estado
             if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearError("La partida no está en progreso");
+                return crearError("La partida no esta en progreso");
             }
             
             // Validar turno
@@ -95,7 +84,7 @@ public class CtrlMoverFicha {
                 );
             }
 
-            // Si llegó a meta
+            // Si llego a meta
             if (resultado.llegadaMeta) {
                 VistaServidor.mostrarLlegadaMeta(
                     jugador, 
@@ -103,7 +92,7 @@ public class CtrlMoverFicha {
                     jugador.contarFichasEnMeta()
                 );
 
-                // Si ganó
+                // Si gano
                 if (jugador.haGanado()) {
                     VistaServidor.mostrarGanador(partida, jugador);
                 }
@@ -117,24 +106,24 @@ public class CtrlMoverFicha {
                 notificarCaptura(partida, jugador, resultado, cliente);
             }
             
-            // Si llegó a meta, notificar
+            // Si llego a meta, notificar
             if (resultado.llegadaMeta) {
                 notificarLlegadaMeta(partida, jugador, fichaId, cliente);
                 
-                // Verificar si ganó
+                // Verificar si gano
                 if (jugador.haGanado()) {
                     notificarGanador(partida, jugador, cliente);
                     partida.setEstado(EstadoPartida.FINALIZADA);
                 }
             }
             
-            // ✅ NUEVO: Avanzar turno solo si el movimiento fue exitoso
+            //  Avanzar turno solo si el movimiento fue exitoso
             partida.avanzarTurno();
             
-            // ✅ NUEVO: Notificar estado del tablero a todos
+            // Notificar estado del tablero a todos
             notificarEstadoTablero(partida, cliente);
             
-            // ✅ NUEVO: Notificar al siguiente jugador
+            //  Notificar al siguiente jugador
             Jugador siguienteJugador = partida.getJugadorActual();
             if (siguienteJugador != null) {
                 notificarCambioTurno(partida, siguienteJugador, cliente);
@@ -146,8 +135,8 @@ public class CtrlMoverFicha {
             return respuesta.toString();
             
         } catch (MotorJuego.MovimientoInvalidoException e) {
-            // ✅ CORRECCIÓN: No cambiar turno si el movimiento es inválido
-            return crearError("Movimiento inválido: " + e.getMessage());
+            //  No cambiar turno si el movimiento es invalido
+            return crearError("Movimiento invalido: " + e.getMessage());
         } catch (MotorJuego.NoEsTuTurnoException e) {
             return crearError("No es tu turno");
         } catch (MotorJuego.JuegoException e) {
@@ -159,9 +148,6 @@ public class CtrlMoverFicha {
         }
     }
     
-    // ============================
-    // USAR BONUS
-    // ============================
     
     /**
      * Usa movimientos bonus acumulados.
@@ -182,14 +168,14 @@ public class CtrlMoverFicha {
             // Obtener partida
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
-                return crearError("No estás en ninguna partida");
+                return crearError("No estas en ninguna partida");
             }
             
             Partida partida = partidaOpt.get();
             
             // Validar estado
             if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearError("La partida no está en progreso");
+                return crearError("La partida no esta en progreso");
             }
             
             // Obtener motor
@@ -223,7 +209,7 @@ public class CtrlMoverFicha {
             // Notificar
             notificarUsoBonus(partida, jugador, fichaId, pasos, resultado, cliente);
             
-            // ✅ NUEVO: Notificar estado del tablero
+            //  Notificar estado del tablero
             notificarEstadoTablero(partida, cliente);
             
             // Crear respuesta
@@ -238,10 +224,7 @@ public class CtrlMoverFicha {
             return crearError("Error: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // CREAR RESPUESTAS
-    // ============================
+
     
     /**
      * Crea respuesta JSON para un movimiento.
@@ -258,7 +241,7 @@ public class CtrlMoverFicha {
         
         respuesta.add("movimiento", movimiento);
         
-        // Información adicional
+        // Informacion adicional
         if (resultado.capturaRealizada) {
             respuesta.addProperty("captura", true);
             respuesta.addProperty("fichaCapturadaId", resultado.fichaCapturadaId);
@@ -403,7 +386,7 @@ public class CtrlMoverFicha {
             handlerTurno.enviarMensaje(tuTurno.toString());
         }
         
-        // Notificar a los demás que cambió el turno
+        // Notificar a los demas que cambio el turno
         JsonObject cambioTurno = new JsonObject();
         cambioTurno.addProperty("tipo", "cambio_turno");
         cambioTurno.addProperty("jugadorId", jugadorTurno.getId());
@@ -415,23 +398,18 @@ public class CtrlMoverFicha {
             jugadorTurno.getSessionId()
         );
     }
-    
-    /**
-     * ✅ NUEVO: Notifica el estado actual del tablero a todos los jugadores
-     * El MODELO proporciona datos estructurados en JSON
-     * La VISTA del cliente los formatea
-     */
+
     private void notificarEstadoTablero(Partida partida, ClienteHandler cliente) {
         if (partida.getTablero() == null) {
             return;
         }
         
-        // ✅ CORRECTO: El modelo genera JSON con datos estructurados
+
         JsonObject estadoTablero = partida.getTablero().generarEstadoJSON();
         
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "estado_tablero");
-        notificacion.add("tablero", estadoTablero); // ✅ add() para JsonObject, no addProperty()
+        notificacion.add("tablero", estadoTablero); // add() para JsonObject, no addProperty()
         
         cliente.getServidor().broadcastAPartida(
             partida.getId(),
@@ -439,10 +417,6 @@ public class CtrlMoverFicha {
             null // Enviar a todos
         );
     }
-    
-    // ============================
-    // UTILIDADES
-    // ============================
     
     /**
      * Obtiene el motor de juego de la partida.

@@ -21,14 +21,11 @@ public class CtrlUnirse {
         this.salaServicio = SalaServicio.getInstancia();
     }
     
-    // ============================
-    // REGISTRO DE JUGADOR
-    // ============================
-    
+     
     public String registrarJugador(ClienteHandler cliente, String nombre) {
         try {
             if (nombre == null || nombre.trim().isEmpty()) {
-                return crearError("El nombre no puede estar vacío");
+                return crearError("El nombre no puede estar vacio");
             }
             
             nombre = nombre.trim();
@@ -37,13 +34,13 @@ public class CtrlUnirse {
             }
             
             if (cliente.getJugador() != null) {
-                return crearError("Ya estás registrado como: " + cliente.getJugador().getNombre());
+                return crearError("Ya estas registrado como: " + cliente.getJugador().getNombre());
             }
             
             Jugador jugador = persistencia.crearJugador(nombre, cliente.getSessionId());
             cliente.setJugador(jugador);
             
-            System.out.println("✓ Jugador registrado: " + nombre + " [ID: " + jugador.getId() + "]");
+            System.out.println("Jugador registrado: " + nombre + " [ID: " + jugador.getId() + "]");
             
             JsonObject respuesta = new JsonObject();
             respuesta.addProperty("tipo", "registro_exitoso");
@@ -65,10 +62,6 @@ public class CtrlUnirse {
         }
     }
     
-    // ============================
-    // CREAR SALA
-    // ============================
-    
     public String crearSala(ClienteHandler cliente, String nombreSala, int maxJugadores) {
         try {
             Jugador jugador = cliente.getJugador();
@@ -78,11 +71,11 @@ public class CtrlUnirse {
             
             Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (partidaActual.isPresent()) {
-                return crearError("Ya estás en una partida. Sal primero.");
+                return crearError("Ya estas en una partida. Sal primero.");
             }
             
             if (maxJugadores < 2 || maxJugadores > 4) {
-                return crearError("El número de jugadores debe ser entre 2 y 4");
+                return crearError("El numero de jugadores debe ser entre 2 y 4");
             }
             
             Partida partida = salaServicio.crearSala(nombreSala, maxJugadores);
@@ -90,7 +83,7 @@ public class CtrlUnirse {
             boolean unido = salaServicio.unirJugadorAPartida(jugador.getId(), partida.getId());
             
             if (!unido) {
-                return crearError("Error uniéndose a la sala creada");
+                return crearError("Error uniendose a la sala creada");
             }
             
             System.out.println("✓ Sala creada: " + nombreSala + " [ID: " + partida.getId() + "]");
@@ -110,11 +103,7 @@ public class CtrlUnirse {
             return crearError("Error creando sala: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // UNIRSE A PARTIDA
-    // ============================
-    
+
     public String unirseAPartida(ClienteHandler cliente, int partidaId) {
         try {
             Jugador jugador = cliente.getJugador();
@@ -124,7 +113,7 @@ public class CtrlUnirse {
             
             Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (partidaActual.isPresent()) {
-                return crearError("Ya estás en una partida");
+                return crearError("Ya estas en una partida");
             }
             
             Partida partida = persistencia.obtenerPartida(partidaId);
@@ -138,7 +127,7 @@ public class CtrlUnirse {
                 return crearError("No se pudo unir a la partida (puede estar llena o iniciada)");
             }
             
-            System.out.println("✓ " + jugador.getNombre() + " se unió a partida " + partidaId);
+            System.out.println("✓ " + jugador.getNombre() + " se unio a partida " + partidaId);
             
             notificarNuevoJugador(partida, jugador, cliente);
             
@@ -153,7 +142,7 @@ public class CtrlUnirse {
             return respuesta.toString();
             
         } catch (Exception e) {
-            System.err.println("Error uniéndose a partida: " + e.getMessage());
+            System.err.println("Error uniendose a partida: " + e.getMessage());
             return crearError("Error: " + e.getMessage());
         }
     }
@@ -167,7 +156,7 @@ public class CtrlUnirse {
             
             Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (partidaActual.isPresent()) {
-                return crearError("Ya estás en una partida");
+                return crearError("Ya estas en una partida");
             }
             
             Partida partida = salaServicio.unirJugadorAPartidaDisponible(jugador.getId());
@@ -176,7 +165,7 @@ public class CtrlUnirse {
                 return crearError("No se pudo unir a ninguna partida");
             }
             
-            System.out.println("✓ " + jugador.getNombre() + " se unió a partida " + partida.getId());
+            System.out.println("✓ " + jugador.getNombre() + " se unio a partida " + partida.getId());
             
             notificarNuevoJugador(partida, jugador, cliente);
             
@@ -191,15 +180,11 @@ public class CtrlUnirse {
             return respuesta.toString();
             
         } catch (Exception e) {
-            System.err.println("Error uniéndose a partida: " + e.getMessage());
+            System.err.println("Error uniendose a partida: " + e.getMessage());
             return crearError("Error: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // LISTAR SALAS
-    // ============================
-    
+
     public String listarSalasDisponibles(ClienteHandler cliente) {
         try {
             List<Partida> disponibles = salaServicio.obtenerPartidasDisponibles();
@@ -228,10 +213,7 @@ public class CtrlUnirse {
             return crearError("Error listando salas: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // MARCAR LISTO
-    // ============================
+
     
     public String marcarListo(ClienteHandler clienteHandler) {
         try {
@@ -242,7 +224,7 @@ public class CtrlUnirse {
 
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
-                return crearError("No estás en ninguna partida");
+                return crearError("No estas en ninguna partida");
             }
 
             Partida partida = partidaOpt.get();
@@ -253,7 +235,7 @@ public class CtrlUnirse {
                 return crearError("No se pudo marcar como listo");
             }
 
-            System.out.println(jugador.getNombre() + " está listo");
+            System.out.println(jugador.getNombre() + " esta listo");
 
             notificarJugadorListo(partida, jugador, clienteHandler);
 
@@ -273,10 +255,7 @@ public class CtrlUnirse {
             return crearError("Error: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // SALIR DE PARTIDA
-    // ============================
+
     
     public String salirDePartida(ClienteHandler cliente) {
         try {
@@ -287,7 +266,7 @@ public class CtrlUnirse {
             
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
-                return crearError("No estás en ninguna partida");
+                return crearError("No estas en ninguna partida");
             }
             
             Partida partida = partidaOpt.get();
@@ -299,7 +278,7 @@ public class CtrlUnirse {
                 return crearError("No se pudo salir de la partida");
             }
             
-            System.out.println("✓ " + jugador.getNombre() + " salió de partida " + partidaId);
+            System.out.println("✓ " + jugador.getNombre() + " salio de partida " + partidaId);
             
             notificarJugadorSalio(partidaId, jugador, cliente);
             
@@ -314,11 +293,7 @@ public class CtrlUnirse {
             return crearError("Error: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // NOTIFICACIONES
-    // ============================
-    
+
     private void notificarNuevoJugador(Partida partida, Jugador nuevoJugador, ClienteHandler cliente) {
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "jugador_unido");
@@ -359,7 +334,7 @@ public class CtrlUnirse {
         );
     }
     
-    // ✅ MÉTODO CORREGIDO
+   
     private void notificarInicioPartida(Partida partida, ClienteHandler clienteHandler) {
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "partida_iniciada");
@@ -372,16 +347,12 @@ public class CtrlUnirse {
             notificacion.addProperty("turnoJugadorNombre", jugadorTurno.getNombre());
         }
         
-        // ✅ USAR EL SERVIDOR PARA BROADCAST
-        clienteHandler.getServidor().broadcastAPartida(
+               clienteHandler.getServidor().broadcastAPartida(
             partida.getId(),
             notificacion.toString()
         );
     }
     
-    // ============================
-    // UTILIDADES
-    // ============================
     
     private JsonObject serializarPartida(Partida partida) {
         JsonObject datos = new JsonObject();

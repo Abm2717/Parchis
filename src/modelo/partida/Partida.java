@@ -10,35 +10,23 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Representa una partida de Parchís.
+ * Representa una partida de Parchis.
  * Maneja jugadores, turno actual, tablero y estado general.
  * Thread-safe mediante ReentrantLock.
  */
 public class Partida {
     
-    // Identificación
     private int id;
     private String nombre;
-    
-    // Jugadores y configuración
     private List<Jugador> jugadores;
     private int maxJugadores;
-    
-    // Estado del juego
     private EstadoPartida estadoActual;
-    private int turnoActual; // índice del jugador en turno (0, 1, 2, 3)
-    
-    // Tablero
+    private int turnoActual;  
     private Tablero tablero;
-    
-    // Thread-safety
     private final ReentrantLock lock;
-    
     private MotorJuego motorJuego;
     
-    // ============================
-    // CONSTRUCTORES
-    // ============================
+  
     
     public Partida(int id, String nombre) {
         this(id, nombre, 4);
@@ -56,18 +44,15 @@ public class Partida {
         this.lock = new ReentrantLock();
     }
     
-    // Getter
+  
     public MotorJuego getMotorJuego() {
         return motorJuego;
     }
 
-    // Setter (se llama cuando la partida inicia)
+
     public void setMotorJuego(MotorJuego motorJuego) {
         this.motorJuego = motorJuego;
     }
-    // ============================
-    // GESTIÓN DE JUGADORES
-    // ============================
     
     /**
      * Verifica si se puede unir un jugador a la partida.
@@ -84,7 +69,7 @@ public class Partida {
     
     /**
      * Agrega un jugador a la partida.
-     * @return true si se agregó exitosamente
+     * @return true si se agrego exitosamente
      */
     public boolean agregarJugador(Jugador jugador) {
         lock.lock();
@@ -93,7 +78,7 @@ public class Partida {
                 return false;
             }
             
-            // Verificar que no esté ya en la partida
+            // Verificar que no este ya en la partida
             if (jugadores.stream().anyMatch(j -> j.getId() == jugador.getId())) {
                 return false;
             }
@@ -107,14 +92,14 @@ public class Partida {
     
     /**
      * Remueve un jugador de la partida.
-     * @return true si se removió exitosamente
+     * @return true si se removio exitosamente
      */
     public boolean removerJugador(int jugadorId) {
         lock.lock();
         try {
             boolean removido = jugadores.removeIf(j -> j.getId() == jugadorId);
             
-            // Si se removió el jugador del turno actual, ajustar turno
+            // Si se removio el jugador del turno actual, ajustar turno
             if (removido && turnoActual >= jugadores.size() && !jugadores.isEmpty()) {
                 turnoActual = turnoActual % jugadores.size();
             }
@@ -156,7 +141,7 @@ public class Partida {
     }
     
     /**
-     * Obtiene una ficha específica de un jugador.
+     * Obtiene una ficha especifica de un jugador.
      */
     public Ficha getFicha(int jugadorId, int fichaId) {
         Jugador jugador = getJugadorPorId(jugadorId);
@@ -167,7 +152,7 @@ public class Partida {
     }
     
     // ============================
-    // GESTIÓN DE TURNOS
+    // GESTIoN DE TURNOS
     // ============================
     
     /**
@@ -187,19 +172,17 @@ public class Partida {
     }
     
     /**
-     * Verifica si es el turno de un jugador específico.
+     * Verifica si es el turno de un jugador especifico.
      */
     public boolean esTurnoDeJugador(int jugadorId) {
         Jugador actual = getJugadorActual();
         return actual != null && actual.getId() == jugadorId;
     }
     
-    // ============================
-    // GESTIÓN DE ESTADO
-    // ============================
+
     
     /**
-     * Verifica si la partida ha terminado (algún jugador ganó).
+     * Verifica si la partida ha terminado.
      */
     public boolean haTerminado() {
         lock.lock();
@@ -208,7 +191,7 @@ public class Partida {
                 return false;
             }
             
-            // Verificar si algún jugador tiene todas sus fichas en meta
+            // Verificar si algun jugador tiene todas sus fichas en meta
             for (Jugador j : jugadores) {
                 if (j.haGanado()) {
                     return true;
@@ -241,7 +224,7 @@ public class Partida {
     }
     
     /**
-     * Verifica si todos los jugadores están listos.
+     * Verifica si todos los jugadores estan listos.
      */
     public boolean todosJugadoresListos() {
         lock.lock();
@@ -255,9 +238,6 @@ public class Partida {
         }
     }
     
-    // ============================
-    // GETTERS Y SETTERS
-    // ============================
     
     public int getId() {
         return id;
@@ -333,7 +313,7 @@ public class Partida {
     // ============================
     
     /**
-     * Obtiene el número actual de jugadores.
+     * Obtiene el numero actual de jugadores.
      */
     public int getNumeroJugadores() {
         lock.lock();
@@ -345,7 +325,7 @@ public class Partida {
     }
     
     /**
-     * Verifica si la partida está llena.
+     * Verifica si la partida esta llena.
      */
     public boolean estaLlena() {
         lock.lock();
@@ -357,7 +337,7 @@ public class Partida {
     }
     
     /**
-     * Verifica si la partida tiene el mínimo de jugadores para comenzar.
+     * Verifica si la partida tiene el minimo de jugadores para comenzar.
      */
     public boolean tieneMinJugadores() {
         lock.lock();
@@ -369,7 +349,7 @@ public class Partida {
     }
     
     /**
-     * Reinicia la partida (útil para jugar de nuevo).
+     * Reinicia la partida (util para jugar de nuevo).
      */
     public void reiniciar() {
         lock.lock();
@@ -395,7 +375,7 @@ public class Partida {
     }
     
     /**
-     * Obtiene información resumida de la partida.
+     * Obtiene informacion resumida de la partida.
      */
     public String getResumen() {
         lock.lock();

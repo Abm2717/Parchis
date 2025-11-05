@@ -25,10 +25,6 @@ public class VistaCliente {
         this.esperandoInicioPartida = false;
     }
     
-    // ============================
-    // MÉTODOS AUTOMÁTICOS
-    // ============================
-    
     public boolean conectarAlServidor(String ip, int puerto) {
         return controlador.conectar(ip, puerto);
     }
@@ -58,10 +54,7 @@ public class VistaCliente {
         return creada;
     }
     
-    // ============================
-    // MENÚ UNIRSE
-    // ============================
-    
+  //Menu unirse
     public void menuUnirsePartida() {
         System.out.println("\n" + SEPARADOR);
         System.out.println("          UNIRSE A PARTIDA");
@@ -172,9 +165,6 @@ public class VistaCliente {
         }
     }
     
-    // ============================
-    // SALA DE ESPERA
-    // ============================
     
     public void esperarEnSala() {
         System.out.println("\n" + SEPARADOR);
@@ -200,9 +190,6 @@ public class VistaCliente {
         }
     }
     
-    // ============================
-    // LOOP PRINCIPAL
-    // ============================
     
     public void iniciarLoopCliente() {
         esperarEnSala();
@@ -230,13 +217,11 @@ public class VistaCliente {
         try {
             scanner.nextLine();
         } catch (Exception e) {
-            // Ignorar
+            
         }
     }
     
-    // ============================
-    // JUEGO EN PROGRESO
-    // ============================
+    
     
     public void iniciarJuego() {
         esperandoInicioPartida = false;
@@ -397,9 +382,7 @@ public class VistaCliente {
         return true;
     }
     
-    // ============================
-    // NOTIFICACIONES
-    // ============================
+    
     
     public void notificarTurno() {
         System.out.println("\n" + SEPARADOR);
@@ -407,16 +390,12 @@ public class VistaCliente {
         System.out.println(SEPARADOR);
     }
     
-    // ✅ NUEVO: Mostrar cambio de turno
     public void mostrarCambioTurno(String jugadorNombre) {
         System.out.println("\n[TURNO] Ahora es el turno de: " + jugadorNombre);
         System.out.println("** Esperando turno de otros jugadores... **");
     }
     
-    /**
-     * ✅ NUEVO: Mostrar estado del tablero procesando JSON del modelo
-     * Responsabilidad de la VISTA: formatear y presentar los datos
-     */
+ 
     public void mostrarEstadoTablero(JsonObject tableroJson) {
         System.out.println("\n========================================");
         System.out.println("         ESTADO DEL TABLERO");
@@ -460,9 +439,6 @@ public class VistaCliente {
         System.out.println("\n========================================\n");
     }
     
-    /**
-     * Convierte nombre de color a español
-     */
     private String obtenerNombreColor(String color) {
         switch (color) {
             case "ROJO": return "Rojo";

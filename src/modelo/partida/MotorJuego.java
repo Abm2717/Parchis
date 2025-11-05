@@ -12,43 +12,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * MotorJuego - Motor de reglas del Parchís con variantes específicas:
+ * MotorJuego - Motor de reglas del Parchis.
  * 
- * REGLAS IMPLEMENTADAS:
- * 1. Cada jugador tiene hasta 4 fichas
- * 2. En la salida pueden haber dos fichas del mismo jugador
- * 3. Para sacar una ficha de casa se necesita sacar un 5
- * 4. Sistema de dobles (dos dados iguales):
- *    - Rompe bloqueo PROPIO del jugador que tiró (si existe)
- *    - Da derecho a volver a tirar
- *    - Si sacas 3 dobles seguidos, pierdes una ficha
- * 5. Al comer una ficha rival:
- *    - La ficha capturada vuelve a casa
- *    - Se otorgan 20 casillas de bonus que pueden usarse en CUALQUIER ficha
- * 6. Al llegar a meta: bonus de 10 puntos
- * 7. Bloqueos:
- *    - Dos fichas del mismo jugador en misma casilla forman bloqueo
- *    - Nadie puede pasar por una casilla con bloqueo
- *    - En casillas seguras se puede formar bloqueo con cualquier ficha
- * 8. Casillas seguras: no permiten captura, permiten coexistencia
- * 
- * Thread-safety: Todos los métodos públicos están sincronizados
  */
 public class MotorJuego {
 
     private final Partida partida;
     private final Dado dado1;
     private final Dado dado2;
-
-    // Control de dobles consecutivos por jugador
     private final Map<Integer, Integer> contadorDobles = new HashMap<>();
-
-    // Pool de movimientos bonus por jugador (se ganan al comer fichas)
     private final Map<Integer, Integer> bonusMoves = new HashMap<>();
 
-    // ============================
-    // CONSTRUCTORES
-    // ============================
 
     public MotorJuego(Partida partida) {
         this(partida, new Dado(), new Dado());
@@ -60,9 +34,6 @@ public class MotorJuego {
         this.dado2 = Objects.requireNonNull(dado2, "Dado2 no puede ser null");
     }
 
-    // ============================
-    // EXCEPCIONES DE DOMINIO
-    // ============================
 
     public static class JuegoException extends RuntimeException {
         public JuegoException(String msg) { 
@@ -91,9 +62,6 @@ public class MotorJuego {
         }
     }
 
-    // ============================
-    // OPERACIONES PRINCIPALES
-    // ============================
 
     /**
      * Tira ambos dados y aplica reglas de doble:
@@ -130,7 +98,7 @@ public class MotorJuego {
             bloqueoRoto = romperBloqueoPropioSiExiste(jugadorId);
         }
         
-        // Penalización por 3 dobles consecutivos
+        // Penalizacon por 3 dobles consecutivos
         if (cont >= 3) {
             perderFichaPorTresDobles(jugadorId);
             contadorDobles.put(jugadorId, 0);
@@ -141,13 +109,13 @@ public class MotorJuego {
     }
 
     /**
-     * Mueve una ficha según el número de pasos indicado.
+     * Mueve una ficha segun el numero de pasos indicado.
      * Valida todas las reglas: salida, bloqueos, capturas, casillas seguras.
      * 
      * @param jugadorId ID del jugador
      * @param fichaId ID de la ficha a mover
-     * @param pasos Número de casillas a avanzar
-     * @return Resultado del movimiento con información de capturas y bonos
+     * @param pasos Numero de casillas a avanzar
+     * @return Resultado del movimiento con informacon de capturas y bonos
      * @throws NoEsTuTurnoException si no es el turno del jugador
      * @throws MovimientoInvalidoException si el movimiento viola alguna regla
      */
@@ -166,12 +134,12 @@ public class MotorJuego {
         Tablero tablero = partida.getTablero();
         ResultadoMovimiento resultado = new ResultadoMovimiento();
 
-        // CASO 1: Ficha está en casa -> intentar sacar
+        // CASO 1: Ficha esta en casa -> intentar sacar
         if (ficha.estaEnCasa()) {
             return sacarFichaDeCasa(ficha, jugadorId, pasos, resultado);
         }
 
-        // CASO 2: Ficha está en tablero -> mover normal
+        // CASO 2: Ficha esta en tablero -> mover normal
         return moverFichaEnTablero(ficha, jugadorId, pasos, tablero, resultado);
     }
 
@@ -207,9 +175,6 @@ public class MotorJuego {
         return resultado;
     }
 
-    // ============================
-    // MÉTODOS DE MOVIMIENTO INTERNOS
-    // ============================
 
     private ResultadoMovimiento sacarFichaDeCasa(Ficha ficha, int jugadorId, int pasos, 
                                                   ResultadoMovimiento resultado) {
@@ -222,12 +187,12 @@ public class MotorJuego {
         Tablero tablero = partida.getTablero();
         Casilla salida = tablero.getCasillaSalidaParaJugador(jugadorId);
         
-        // Validar que la salida no esté bloqueada por rival
+        // Validar que la salida no este bloqueada por rival
         if (salidaBloqueadaPorRival(salida, jugadorId)) {
-            throw new MovimientoInvalidoException("La casilla de salida está bloqueada por un rival");
+            throw new MovimientoInvalidoException("La casilla de salida esta bloqueada por un rival");
         }
         
-        // Validar límite de 2 fichas en salida
+        // Validar limite de 2 fichas en salida
         int fichasEnSalida = contarFichasPropiasEnCasilla(salida, jugadorId);
         if (fichasEnSalida >= 2) {
             throw new MovimientoInvalidoException("Ya tienes 2 fichas en la salida");
@@ -255,7 +220,7 @@ public class MotorJuego {
                                                      Tablero tablero, ResultadoMovimiento resultado) {
         Casilla origen = ficha.getCasillaActual();
         if (origen == null) {
-            throw new MovimientoInvalidoException("Ficha sin casilla válida");
+            throw new MovimientoInvalidoException("Ficha sin casilla valida");
         }
 
         int indiceOrigen = origen.getIndice();
@@ -299,7 +264,7 @@ public class MotorJuego {
         }
         
         if (ficha.estaEnCasa()) {
-            throw new MovimientoInvalidoException("No puedes mover una ficha que está en casa con bonus");
+            throw new MovimientoInvalidoException("No puedes mover una ficha que esta en casa con bonus");
         }
         
         Tablero tablero = partida.getTablero();
@@ -308,10 +273,7 @@ public class MotorJuego {
         return moverFichaEnTablero(ficha, jugadorId, pasos, tablero, resultado);
     }
 
-    // ============================
-    // PROCESAMIENTO DE EVENTOS
-    // ============================
-
+    
     private void procesarCaptura(Ficha fichaCapturada, int jugadorCapturador, 
                                   ResultadoMovimiento resultado) {
         // Enviar ficha capturada a casa
@@ -344,10 +306,7 @@ public class MotorJuego {
         ficha.setEstado(EstadoFicha.EN_META);
     }
 
-    // ============================
-    // MANEJO DE BLOQUEOS
-    // ============================
-
+  
     private boolean tieneBloqueoPropio(int jugadorId) {
         Tablero tablero = partida.getTablero();
         Jugador jugador = partida.getJugadorPorId(jugadorId);
@@ -372,7 +331,7 @@ public class MotorJuego {
             Tablero tablero = partida.getTablero();
             return tablero.romperBloqueoPropio(jugadorId);
         } catch (UnsupportedOperationException e) {
-            // Si Tablero no implementa este método aún, no hacer nada
+            
             return false;
         }
     }
@@ -390,14 +349,11 @@ public class MotorJuego {
         Map<Integer, Long> fichasPorJugador = fichasEnSalida.stream()
             .collect(Collectors.groupingBy(Ficha::getIdJugador, Collectors.counting()));
         
-        // Hay bloqueo rival si algún otro jugador tiene 2+ fichas
+        // Hay bloqueo rival si algun otro jugador tiene 2+ fichas
         return fichasPorJugador.entrySet().stream()
             .anyMatch(entry -> entry.getKey() != jugadorId && entry.getValue() >= 2);
     }
 
-    // ============================
-    // BÚSQUEDA Y VALIDACIÓN
-    // ============================
 
     private Ficha buscarFichaRivalEnCasilla(Casilla casilla, int jugadorId) {
         if (casilla == null) return null;
@@ -441,10 +397,7 @@ public class MotorJuego {
         }
     }
 
-    // ============================
-    // PENALIZACIONES
-    // ============================
-
+  
     private void perderFichaPorTresDobles(int jugadorId) {
         Jugador jugador = partida.getJugadorPorId(jugadorId);
         if (jugador == null) return;
@@ -458,16 +411,11 @@ public class MotorJuego {
         if (fichaAPenalizar != null) {
             enviarFichaACasa(fichaAPenalizar);
         } else {
-            // Si no hay fichas en tablero, penalizar con puntos
-            int puntosActuales = jugador.getPuntos();
-            jugador.setPuntos(Math.max(0, puntosActuales - 5));
+            
         }
     }
 
-    // ============================
-    // CONSULTAS
-    // ============================
-
+   
     public synchronized int getBonusDisponible(int jugadorId) {
         return bonusMoves.getOrDefault(jugadorId, 0);
     }
@@ -481,16 +429,11 @@ public class MotorJuego {
     }
 
     public synchronized EstadoPartida obtenerEstado() {
-        // Delegar a Partida.snapshot() si existe
-        // return partida.snapshot();
-        throw new UnsupportedOperationException(
+          throw new UnsupportedOperationException(
             "Implementar Partida.snapshot() para obtener estado completo"
         );
     }
 
-    // ============================
-    // CLASES DE RESULTADO
-    // ============================
 
     /**
      * Resultado de tirar los dados

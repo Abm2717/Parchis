@@ -29,10 +29,27 @@ public class JugadorDTO implements Serializable {
              jugador.getAvatar(), jugador.getPuntos(), jugador.isListo());
     }
 
-    public int getId() { return id; }
-    public String getNombre() { return nombre; }
-    public ColorJugador getColor() { return color; }
-    public String getAvatar() { return avatar; }
-    public int getPuntos() { return puntos; }
-    public boolean isListo() { return listo; }
+    public int getId() { 
+        return id; 
+    }
+    
+    public String getNombre() {
+        return nombre; 
+    }
+    
+    public ColorJugador getColor() { 
+        return color; 
+    }
+    
+    public String getAvatar() { 
+        return avatar; 
+    }
+    
+    public int getPuntos() { 
+        return puntos; 
+    }
+    
+    public boolean isListo() { 
+        return listo; 
+    }
 }

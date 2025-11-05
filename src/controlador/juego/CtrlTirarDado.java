@@ -1,6 +1,4 @@
-// ========================================
-// CTRLMOVERFICHATIRADADO.JAVA
-// ========================================
+
 package controlador.juego;
 
 import controlador.servidor.ClienteHandler;
@@ -18,12 +16,6 @@ import vista.VistaServidor;
 /**
  * Controlador para manejar la tirada de dados.
  * 
- * Responsabilidades:
- * - Validar que sea el turno del jugador
- * - Ejecutar tirada de dados mediante MotorJuego
- * - Aplicar reglas de dobles
- * - Notificar resultado a todos los jugadores
- * - Gestionar turnos y penalizaciones
  */
 public class CtrlTirarDado {
     
@@ -35,9 +27,6 @@ public class CtrlTirarDado {
         this.salaServicio = SalaServicio.getInstancia();
     }
     
-    // ============================
-    // TIRAR DADOS
-    // ============================
     
     /**
      * Ejecuta la tirada de dados para un jugador.
@@ -57,7 +46,7 @@ public class CtrlTirarDado {
             // Obtener partida del jugador
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
-                return crearError("No estás en ninguna partida");
+                return crearError("No estas en ninguna partida");
             }
             
             Partida partida = partidaOpt.get();
@@ -74,7 +63,7 @@ public class CtrlTirarDado {
                 return crearError("No es tu turno. Turno de: " + nombreTurno);
             }
             
-            // Obtener motor de juego (asumiendo que está en la partida o crear uno)
+            // Obtener motor de juego (asumiendo que esta en la partida o crear uno)
             MotorJuego motor = obtenerMotorJuego(partida);
             
             // Tirar dados
@@ -98,23 +87,23 @@ public class CtrlTirarDado {
             // Notificar a todos los jugadores
             notificarResultadoDados(partida, jugador, resultado, cliente);
             
-            // Crear respuesta para el jugador que tiró
+            // Crear respuesta para el jugador que tiro
             JsonObject respuesta = crearRespuestaTirada(resultado);
             
-            // Si sacó doble, puede volver a tirar
+            // Si saco doble, puede volver a tirar
             if (resultado.esDoble && !resultado.fichaPerdida) {
                 respuesta.addProperty("puedeVolverATirar", true);
                 respuesta.addProperty("mensaje", "¡Doble! Puedes tirar de nuevo");
             }
             
-            // Si perdió ficha por 3 dobles
+            // Si perdio ficha por 3 dobles
             if (resultado.fichaPerdida) {
                 respuesta.addProperty("fichaPerdida", true);
                 respuesta.addProperty("mensaje", "3 dobles seguidos - Pierdes una ficha");
                 notificarFichaPerdida(partida, jugador, cliente);
             }
             
-            // Si rompió bloqueo
+            // Si rompio bloqueo
             if (resultado.bloqueoRoto) {
                 respuesta.addProperty("bloqueoRoto", true);
                 notificarBloqueoRoto(partida, jugador, cliente);
@@ -132,10 +121,7 @@ public class CtrlTirarDado {
             return crearError("Error interno: " + e.getMessage());
         }
     }
-    
-    // ============================
-    // CREAR RESPUESTAS
-    // ============================
+
     
     /**
      * Crea la respuesta JSON para el resultado de tirada.
@@ -169,9 +155,6 @@ public class CtrlTirarDado {
         return respuesta;
     }
     
-    // ============================
-    // NOTIFICACIONES
-    // ============================
     
     /**
      * Notifica el resultado de los dados a todos los jugadores de la partida.
@@ -197,7 +180,7 @@ public class CtrlTirarDado {
     }
     
     /**
-     * Notifica que se perdió una ficha por 3 dobles.
+     * Notifica que se perdio una ficha por 3 dobles.
      */
     private void notificarFichaPerdida(Partida partida, Jugador jugador, ClienteHandler cliente) {
         JsonObject notificacion = new JsonObject();
@@ -214,14 +197,14 @@ public class CtrlTirarDado {
     }
     
     /**
-     * Notifica que se rompió un bloqueo.
+     * Notifica que se rompio un bloqueo.
      */
     private void notificarBloqueoRoto(Partida partida, Jugador jugador, ClienteHandler cliente) {
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "bloqueo_roto");
         notificacion.addProperty("jugadorId", jugador.getId());
         notificacion.addProperty("jugadorNombre", jugador.getNombre());
-        notificacion.addProperty("mensaje", jugador.getNombre() + " rompió su bloqueo");
+        notificacion.addProperty("mensaje", jugador.getNombre() + " rompio su bloqueo");
         
         cliente.getServidor().broadcastAPartida(
             partida.getId(), 
@@ -230,14 +213,10 @@ public class CtrlTirarDado {
         );
     }
     
-    // ============================
-    // UTILIDADES
-    // ============================
+
     
     /**
      * Obtiene o crea el MotorJuego para una partida.
-     * IMPORTANTE: En tu implementación real, deberías almacenar 
-     * el MotorJuego en la Partida o en un mapa de motores.
      */
     private MotorJuego obtenerMotorJuego(Partida partida) {
         GestorMotores gestorMotores = GestorMotores.getInstancia();

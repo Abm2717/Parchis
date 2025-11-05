@@ -10,10 +10,9 @@ import java.util.Optional;
 
 /**
  * Servicio de persistencia en memoria para partidas y jugadores.
- * Maneja el almacenamiento temporal de datos durante la ejecución del servidor.
+ * Maneja el almacenamiento temporal de datos durante la ejecucion del servidor.
  * 
- * Thread-safe: usa ConcurrentHashMap para acceso concurrente.
- */
+  */
 public class PersistenciaServicio {
     
     // Singleton instance
@@ -40,7 +39,7 @@ public class PersistenciaServicio {
     }
     
     /**
-     * Obtiene la instancia única del servicio (Singleton).
+     * Obtiene la instancia unica del servicio.
      */
     public static synchronized PersistenciaServicio getInstancia() {
         if (instancia == null) {
@@ -49,9 +48,6 @@ public class PersistenciaServicio {
         return instancia;
     }
     
-    // ============================
-    // GESTIÓN DE PARTIDAS
-    // ============================
     
     /**
      * Crea y almacena una nueva partida.
@@ -106,7 +102,7 @@ public class PersistenciaServicio {
     }
     
     // ============================
-    // GESTIÓN DE JUGADORES
+    // GESTIoN DE JUGADORES
     // ============================
     
     /**
@@ -139,7 +135,7 @@ public class PersistenciaServicio {
     }
     
     /**
-     * Actualiza el estado de conexión de un jugador.
+     * Actualiza el estado de conexion de un jugador.
      */
     public void actualizarConexion(int jugadorId, boolean conectado) {
         Jugador jugador = jugadores.get(jugadorId);
@@ -161,19 +157,16 @@ public class PersistenciaServicio {
         return false;
     }
     
-    // ============================
-    // RELACIÓN JUGADOR-PARTIDA
-    // ============================
     
     /**
-     * Registra que un jugador está en una partida.
+     * Registra que un jugador esta en una partida.
      */
     public void registrarJugadorEnPartida(int jugadorId, int partidaId) {
         jugadorEnPartida.put(jugadorId, partidaId);
     }
     
     /**
-     * Obtiene la partida en la que está un jugador.
+     * Obtiene la partida en la que esta un jugador.
      */
     public Optional<Partida> obtenerPartidaDeJugador(int jugadorId) {
         Integer partidaId = jugadorEnPartida.get(jugadorId);
@@ -190,26 +183,23 @@ public class PersistenciaServicio {
         jugadorEnPartida.remove(jugadorId);
     }
     
-    // ============================
-    // UTILIDADES
-    // ============================
-    
+ 
     /**
-     * Obtiene el número total de partidas activas.
+     * Obtiene el numero total de partidas activas.
      */
     public int getTotalPartidas() {
         return partidas.size();
     }
     
     /**
-     * Obtiene el número total de jugadores registrados.
+     * Obtiene el numero total de jugadores registrados.
      */
     public int getTotalJugadores() {
         return jugadores.size();
     }
     
     /**
-     * Obtiene el número de jugadores conectados.
+     * Obtiene el numero de jugadores conectados.
      */
     public long getJugadoresConectados() {
         return jugadores.values().stream()
@@ -218,7 +208,7 @@ public class PersistenciaServicio {
     }
     
     /**
-     * Limpia todos los datos (útil para reiniciar servidor).
+     * Limpia todos los datos.
      */
     public synchronized void limpiarTodo() {
         partidas.clear();

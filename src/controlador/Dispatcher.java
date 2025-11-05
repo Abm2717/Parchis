@@ -204,7 +204,7 @@ public class Dispatcher {
             
             PersistenciaServicio persistencia = PersistenciaServicio.getInstancia();
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) return crearRespuestaError("No estás en ninguna partida");
+            if (!partidaOpt.isPresent()) return crearRespuestaError("No estas en ninguna partida");
             
             Partida partida = partidaOpt.get();
             if (!partida.esTurnoDeJugador(jugador.getId())) return crearRespuestaError("No es tu turno");

@@ -177,8 +177,8 @@ public class CtrlTirarDado {
      * Notifica el resultado de los dados a todos los jugadores de la partida.
      */
     private void notificarResultadoDados(Partida partida, Jugador jugador, 
-                                         MotorJuego.ResultadoDados resultado, 
-                                         ClienteHandler cliente) {
+                                     MotorJuego.ResultadoDados resultado, 
+                                     ClienteHandler cliente) {
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "jugador_tiro_dados");
         notificacion.addProperty("jugadorId", jugador.getId());
@@ -187,8 +187,8 @@ public class CtrlTirarDado {
         notificacion.addProperty("dado2", resultado.dado2);
         notificacion.addProperty("suma", resultado.getSuma());
         notificacion.addProperty("esDoble", resultado.esDoble);
-        
-        // Broadcast a otros jugadores (excluyendo al que tiró)
+
+        // Broadcast a otros jugadores
         cliente.getServidor().broadcastAPartida(
             partida.getId(), 
             notificacion.toString(), 

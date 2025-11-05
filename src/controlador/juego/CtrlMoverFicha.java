@@ -128,9 +128,18 @@ public class CtrlMoverFicha {
                 }
             }
             
+            // ✅ NUEVO: Avanzar turno solo si el movimiento fue exitoso
+            partida.avanzarTurno();
+
+            // Notificar al siguiente jugador
+            Jugador siguienteJugador = partida.getJugadorActual();
+            if (siguienteJugador != null) {
+                notificarCambioTurno(partida, siguienteJugador, cliente);
+            }
+
             // Crear respuesta
             JsonObject respuesta = crearRespuestaMovimiento(resultado);
-            
+
             return respuesta.toString();
             
         } catch (MotorJuego.MovimientoInvalidoException e) {
@@ -369,6 +378,32 @@ public class CtrlMoverFicha {
             partida.getId(), 
             notificacion.toString(), 
             cliente.getSessionId()
+        );
+    }
+    
+    // ✅ NUEVO: Notifica cambio de turno
+    private void notificarCambioTurno(Partida partida, Jugador jugadorTurno, ClienteHandler cliente) {
+        JsonObject notificacion = new JsonObject();
+        notificacion.addProperty("tipo", "tu_turno");
+        notificacion.addProperty("jugadorId", jugadorTurno.getId());
+        notificacion.addProperty("jugadorNombre", jugadorTurno.getNombre());
+        
+        // Enviar solo al jugador cuyo turno es
+        ClienteHandler handlerTurno = cliente.getServidor().getCliente(jugadorTurno.getSessionId());
+        if (handlerTurno != null) {
+            handlerTurno.enviarMensaje(notificacion.toString());
+        }
+        
+        // También informar a los demás que cambió el turno
+        JsonObject notifGeneral = new JsonObject();
+        notifGeneral.addProperty("tipo", "cambio_turno");
+        notifGeneral.addProperty("jugadorId", jugadorTurno.getId());
+        notifGeneral.addProperty("jugadorNombre", jugadorTurno.getNombre());
+        
+        cliente.getServidor().broadcastAPartida(
+            partida.getId(),
+            notifGeneral.toString(),
+            jugadorTurno.getSessionId()
         );
     }
     

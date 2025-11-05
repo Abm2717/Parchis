@@ -1,3 +1,6 @@
+// ========================================
+// CLIENTEHANDLER.JAVA (ACTUALIZADO - SIN DEBUG)
+// ========================================
 package controlador.servidor;
 
 import controlador.Dispatcher;
@@ -20,7 +23,7 @@ public class ClienteHandler implements Runnable {
     private boolean conectado;
     
     // ✅ NUEVO: Flag para ocultar mensajes de debug
-    private static final boolean MODO_DEBUG = false;
+    private static final boolean MODO_DEBUG = true;
     
     public ClienteHandler(Socket socket, String sessionId, ServidorCentral servidor) {
         this.socket = socket;
@@ -70,11 +73,11 @@ public class ClienteHandler implements Runnable {
             }
             
         } catch (SocketException e) {
-            if (MODO_DEBUG) {
-                System.out.println("X [" + sessionId + "] Conexion cerrada");
-            }
+            System.out.println("X [" + sessionId + "] Conexion cerrada (SocketException): " + e.getMessage());
+            e.printStackTrace();
         } catch (IOException e) {
             System.err.println("X [" + sessionId + "] Error de I/O: " + e.getMessage());
+            e.printStackTrace();
         } finally {
             desconectar();
         }
@@ -82,14 +85,24 @@ public class ClienteHandler implements Runnable {
     
     private void procesarMensaje(String mensajeJson) {
         try {
+            if (MODO_DEBUG) {
+                System.out.println("-> [" + sessionId + "] procesando mensaje: " + truncar(mensajeJson, 200));
+            }
+
+            // Log específico para 'listo' (útil)
+            if (mensajeJson.contains("\"tipo\":\"listo\"") || mensajeJson.trim().equalsIgnoreCase("listo")) {
+                System.out.println("[DEBUG] [" + sessionId + "] se solicito marcar listo.");
+            }
+
             String respuesta = dispatcher.procesarMensaje(mensajeJson);
-            
+
             if (respuesta != null && !respuesta.isEmpty()) {
                 enviarMensaje(respuesta);
             }
-            
+
         } catch (Exception e) {
             System.err.println("X Error procesando mensaje: " + e.getMessage());
+            e.printStackTrace(); // <- importante
             enviarError("Error procesando solicitud: " + e.getMessage());
         }
     }

@@ -1,5 +1,5 @@
 // ========================================
-// SERVIDORCENTRAL.JAVA
+// SERVIDORCENTRAL.JAVA (SIN MAIN)
 // ========================================
 package controlador.servidor;
 
@@ -54,6 +54,9 @@ public class ServidorCentral {
     // Contador para IDs de sesión
     private int contadorSesiones;
     
+    // Limpieza automática
+    private ScheduledExecutorService schedulerLimpieza;
+    
     // ============================
     // CONSTRUCTORES
     // ============================
@@ -70,7 +73,14 @@ public class ServidorCentral {
         this.salaServicio = SalaServicio.getInstancia();
         this.contadorSesiones = 0;
         this.poolClientes = Executors.newFixedThreadPool(MAX_CLIENTES);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                if (ejecutando) {
+                    detenerInterno();
+                }
+            }));
     }
+    
+    
     
     // ============================
     // INICIO Y DETENCIÓN
@@ -85,7 +95,6 @@ public class ServidorCentral {
             ejecutando = true;
             
             VistaServidor.mostrarBannerInicio(puerto);
-
             
             // Loop principal - aceptar clientes
             while (ejecutando) {
@@ -103,7 +112,7 @@ public class ServidorCentral {
             System.err.println("Error iniciando servidor en puerto " + puerto);
             System.err.println(e.getMessage());
         } finally {
-            detener();
+            detenerInterno();
         }
     }
     
@@ -111,9 +120,22 @@ public class ServidorCentral {
      * Detiene el servidor y cierra todas las conexiones.
      */
     public void detener() {
-        System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║   DETENIENDO SERVIDOR...              ║");
-        System.out.println("╚════════════════════════════════════════╝");
+        ejecutando = false;
+        
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+            // Ignorar
+        }
+    }
+    
+    /**
+     * Detención interna con limpieza completa.
+     */
+    private void detenerInterno() {
+        VistaServidor.mostrarCierreServidor();
         
         ejecutando = false;
         
@@ -128,6 +150,11 @@ public class ServidorCentral {
             poolClientes.shutdown();
         }
         
+        // Cerrar scheduler de limpieza
+        if (schedulerLimpieza != null) {
+            schedulerLimpieza.shutdown();
+        }
+        
         // Cerrar el servidor socket
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
@@ -138,10 +165,6 @@ public class ServidorCentral {
         }
         
         System.out.println("Servidor detenido.");
-        // En el método detener()
-        if (schedulerLimpieza != null) {
-            schedulerLimpieza.shutdown();
-        }
     }
     
     // ============================
@@ -165,9 +188,6 @@ public class ServidorCentral {
             // Ejecutar el handler en el pool de threads
             poolClientes.execute(cliente);
             
-//            System.out.println("✓ Nueva conexión: " + sessionId + 
-//                             " [" + socketCliente.getInetAddress().getHostAddress() + "]");
-//            System.out.println("  Clientes conectados: " + clientesConectados.size());
             VistaServidor.mostrarNuevaConexion(
                 sessionId, 
                 socketCliente.getInetAddress().getHostAddress(),
@@ -186,9 +206,6 @@ public class ServidorCentral {
         ClienteHandler cliente = clientesConectados.remove(sessionId);
         
         if (cliente != null) {
-            System.out.println("     Cliente desconectado: " + sessionId);
-            System.out.println("  Clientes conectados: " + clientesConectados.size());
-            
             // Actualizar estado del jugador en persistencia
             modelo.Jugador.Jugador jugador = persistencia.obtenerJugadorPorSession(sessionId);
             if (jugador != null) {
@@ -201,8 +218,13 @@ public class ServidorCentral {
                 if (partidaOpt.isPresent()) {
                     String mensaje = crearMensajeDesconexion(jugador);
                     broadcastAPartida(partidaOpt.get().getId(), mensaje, sessionId);
-                    VistaServidor.mostrarDesconexion(sessionId, jugador.getNombre(), clientesConectados.size());
                 }
+                
+                VistaServidor.mostrarDesconexion(
+                    sessionId, 
+                    jugador.getNombre(), 
+                    clientesConectados.size()
+                );
             }
         }
     }
@@ -331,83 +353,13 @@ public class ServidorCentral {
         );
     }
     
-    // Campo de clase
-    private ScheduledExecutorService schedulerLimpieza;
-
-    // En el método iniciar()
+    /**
+     * Inicia limpieza automática de motores (opcional).
+     */
     private void iniciarLimpiezaAutomatica() {
         schedulerLimpieza = Executors.newScheduledThreadPool(1);
-
         schedulerLimpieza.scheduleAtFixedRate(() -> {
-            System.out.println("→ Limpieza automática de motores...");
             GestorMotores.getInstancia().limpiarMotoresFinalizados();
         }, 10, 10, TimeUnit.MINUTES);
-    }
-
-    
-    // ============================
-    // MAIN - PUNTO DE ENTRADA
-    // ============================
-    
-    /**
-     * Punto de entrada principal del servidor.
-     */
-    public static void main(String[] args) {
-        // Determinar puerto (desde argumentos o default)
-        int puerto = PUERTO_DEFAULT;
-        if (args.length > 0) {
-            try {
-                puerto = Integer.parseInt(args[0]);
-            } catch (NumberFormatException e) {
-                System.err.println("Puerto inválido, usando puerto por defecto: " + PUERTO_DEFAULT);
-            }
-        }
-        
-        // Crear e iniciar servidor
-        ServidorCentral servidor = new ServidorCentral(puerto);
-        
-        // Hook para detener servidor al cerrar aplicación
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\nSeñal de cierre recibida...");
-            servidor.detener();
-        }));
-        
-        // Thread para comandos del servidor (opcional)
-        Thread hiloComandos = new Thread(() -> {
-            java.util.Scanner scanner = new java.util.Scanner(System.in);
-            while (servidor.estaEjecutando()) {
-                System.out.print("\nComando (help/stats/stop): ");
-                String comando = scanner.nextLine().trim().toLowerCase();
-                
-                switch (comando) {
-                    case "help":
-                        System.out.println("\nComandos disponibles:");
-                        System.out.println("  stats - Muestra estadísticas del servidor");
-                        System.out.println("  stop  - Detiene el servidor");
-                        System.out.println("  help  - Muestra esta ayuda");
-                        break;
-                    
-                    case "stats":
-                        servidor.mostrarEstadisticas();
-                        break;
-                    
-                    case "stop":
-                        servidor.detener();
-                        System.exit(0);
-                        break;
-                    
-                    default:
-                        if (!comando.isEmpty()) {
-                            System.out.println("Comando no reconocido. Escribe 'help' para ver comandos.");
-                        }
-                }
-            }
-            scanner.close();
-        });
-        hiloComandos.setDaemon(true);
-        hiloComandos.start();
-        
-        // Iniciar servidor (bloquea hasta que se detenga)
-        servidor.iniciar();
     }
 }

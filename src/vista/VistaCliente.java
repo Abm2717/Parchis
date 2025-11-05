@@ -1,6 +1,6 @@
 package vista;
 
-import controlador.cliente.ClienteControlador;
+import controlador.ClienteControlador;
 import java.util.Scanner;
 
 public class VistaCliente {
@@ -202,12 +202,32 @@ public class VistaCliente {
     
     public void iniciarLoopCliente() {
         esperarEnSala();
-        
-        // Esperar hasta que la partida inicie
+
+        System.out.println("\nEsperando que la partida inicie...");
+
         while (esperandoInicioPartida) {
             try {
                 Thread.sleep(100);
-            } catch (InterruptedException e) { }
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+
+        // ✅ SOLUCIÓN: Esperar a que termine el juego
+        while (enPartida) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+
+        // ✅ O mejor aún: Esperar indefinidamente hasta que el usuario cierre
+        System.out.println("\nPresiona Enter para salir...");
+        try {
+            scanner.nextLine();
+        } catch (Exception e) {
+            // Ignorar
         }
     }
     
@@ -227,17 +247,30 @@ public class VistaCliente {
             Thread.sleep(1000);
         } catch (InterruptedException e) { }
         
+        // ✅ CORRECCIÓN: Verificar turno inicial y mostrar mensaje
+        if (controlador.esmiTurno()) {
+            System.out.println("\n** Eres el primero en jugar! **");
+        } else {
+            System.out.println("\n** Esperando turno de otros jugadores... **");
+        }
+        
         // Loop del juego
         while (enPartida) {
-            if (controlador.esmiTurno()) {
-                enPartida = menuTurno();
-            } else {
-                esperarTurno();
+            try {
+                if (controlador.esmiTurno()) {
+                    enPartida = menuTurno();
+                } else {
+                    esperarTurno();
+                }
+            } catch (Exception e) {
+                System.err.println("Error en el juego: " + e.getMessage());
+                break;
             }
         }
         
-        System.out.println("\nPartida finalizada. Presiona Enter para continuar...");
-        scanner.nextLine();
+        System.out.println("\n" + SEPARADOR);
+        System.out.println("Partida finalizada.");
+        System.out.println(SEPARADOR);
     }
     
     private boolean menuTurno() {
@@ -278,52 +311,75 @@ public class VistaCliente {
     
     private void tirarDadosYMover() {
         System.out.println("\nTirando dados...");
-        
+
         controlador.tirarDados();
-        
-        // Esperar a que llegue la respuesta
+
+        // Esperar respuesta
         try {
-            Thread.sleep(500);
+            Thread.sleep(800);
         } catch (InterruptedException e) { }
-        
-        // El resultado se mostrará vía notificación
-        // Luego preguntar qué ficha mover
-        System.out.print("\nIngresa el ID de la ficha a mover (1-4): ");
-        
+
+        int pasos = controlador.getUltimoResultadoDados();
+
+        if (pasos <= 0) {
+            System.out.println("Error: No se recibio resultado de dados.");
+            System.out.println("Intenta de nuevo o sal de la partida.");
+            return;
+        }
+
+        System.out.print("\nIngresa el ID de la ficha a mover (1-4, 0 para saltar turno): ");
+
         try {
-            int fichaId = Integer.parseInt(scanner.nextLine().trim());
-            
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) {
+                // ✅ Si no ingresa nada, terminar turno
+                controlador.marcarTurnoTerminado();
+                return;
+            }
+
+            int fichaId = Integer.parseInt(input);
+
+            if (fichaId == 0) {
+                System.out.println("Turno saltado.");
+                controlador.saltarTurno();  // ✅ Envía mensaje al servidor
+                controlador.marcarTurnoTerminado();
+                return;
+            }
+
             if (fichaId < 1 || fichaId > 4) {
                 System.out.println("ID debe ser entre 1 y 4.");
+                // ✅ NUEVO: Terminar turno aunque haya error
+                controlador.marcarTurnoTerminado();
                 return;
             }
-            
-            int pasos = controlador.getUltimoResultadoDados();
-            
-            if (pasos <= 0) {
-                System.out.println("Error: No hay resultado de dados.");
-                return;
-            }
-            
+
             System.out.println("Moviendo ficha #" + fichaId + " (" + pasos + " casillas)...");
-            
+
             boolean movido = controlador.moverFicha(fichaId, pasos);
-            
+
             if (movido) {
                 System.out.println("Ficha movida exitosamente!");
-                
-                // Esperar un momento
+
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) { }
             } else {
                 System.out.println("No se pudo mover la ficha.");
+                // ✅ NUEVO: Terminar turno aunque el movimiento falle
+                controlador.marcarTurnoTerminado();
             }
-            
+
         } catch (NumberFormatException e) {
             System.out.println("ID invalido.");
+            // ✅ NUEVO: Terminar turno en caso de error
+            controlador.marcarTurnoTerminado();
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            // ✅ NUEVO: Terminar turno en caso de error
+            controlador.marcarTurnoTerminado();
         }
     }
+    
     
     private void esperarTurno() {
         // Simplemente esperar sin imprimir mucho
@@ -361,6 +417,11 @@ public class VistaCliente {
             System.out.println("  ** DOBLE ** - Puedes volver a tirar!");
         }
         System.out.println(SEPARADOR_FINO);
+    }
+    
+    public void mostrarCambioTurno(String jugadorNombre) {
+        System.out.println("\n[TURNO] Ahora es el turno de: " + jugadorNombre);
+        System.out.println("** Esperando turno de otros jugadores... **");
     }
     
     public void mostrarDadosOtroJugador(String nombre, int d1, int d2) {

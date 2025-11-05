@@ -1,4 +1,4 @@
-package controlador.cliente;
+package controlador;
 
 import vista.VistaCliente;
 import com.google.gson.JsonObject;
@@ -136,7 +136,15 @@ public class ClienteControlador {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    vista.iniciarJuego();
+                    // ✅ CORRECCIÓN: Llamar en un thread separado para no bloquear
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(500); // Pequeña pausa
+                            vista.iniciarJuego();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
                     break;
                     
                 case "tu_turno":
@@ -144,6 +152,11 @@ public class ClienteControlador {
                     vista.notificarTurno();
                     break;
                     
+                case "cambio_turno":
+                    String nombreTurno = json.get("jugadorNombre").getAsString();
+                    vista.mostrarCambioTurno(nombreTurno);
+                    break;
+    
                 case "resultado_dados":
                     // ✅ NUESTRO RESULTADO
                     JsonObject dados = json.getAsJsonObject("dados");
@@ -289,6 +302,12 @@ public class ClienteControlador {
         enviarMensaje(mensaje);
     }
     
+    public boolean saltarTurno() {
+        JsonObject mensaje = new JsonObject();
+        mensaje.addProperty("tipo", "saltar_turno");
+        return enviarMensaje(mensaje);
+    }
+    
     // ============================
     // CONSULTAS
     // ============================
@@ -304,5 +323,9 @@ public class ClienteControlador {
     public void mostrarJugadoresEnSala() {
         // Placeholder - la info real viene del servidor
         System.out.println("  Jugadores en sala: (esperando info del servidor)");
+    }
+    
+    public void marcarTurnoTerminado() {
+        esmiTurno = false;
     }
 }

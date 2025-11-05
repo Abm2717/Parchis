@@ -8,6 +8,10 @@ import com.google.gson.JsonSyntaxException;
 import controlador.juego.CtrlMoverFicha;
 import controlador.juego.CtrlTirarDado;
 import controlador.juego.CtrlUnirse;
+import java.util.Optional;
+import modelo.Jugador.Jugador;
+import modelo.partida.Partida;
+import modelo.servicios.PersistenciaServicio;
 
 public class Dispatcher {
     
@@ -98,6 +102,8 @@ public class Dispatcher {
             case "obtener_estado":
             case "estado_partida":
                 return manejarObtenerEstado();
+            case "saltar_turno":
+                return manejarSaltarTurno();
             
             default:
                 return crearRespuestaError("Accion no reconocida: " + tipo);
@@ -225,6 +231,65 @@ public class Dispatcher {
             return crearRespuestaError("Error obteniendo estado: " + e.getMessage());
         }
     }
+    
+    private String manejarSaltarTurno() {
+        try {
+            Jugador jugador = clienteHandler.getJugador();
+            if (jugador == null) {
+                return crearRespuestaError("Debes registrarte primero");
+            }
+
+            PersistenciaServicio persistencia = PersistenciaServicio.getInstancia();
+            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
+
+            if (!partidaOpt.isPresent()) {
+                return crearRespuestaError("No estás en ninguna partida");
+            }
+
+            Partida partida = partidaOpt.get();
+
+            if (!partida.esTurnoDeJugador(jugador.getId())) {
+                return crearRespuestaError("No es tu turno");
+            }
+
+            // Avanzar turno
+            partida.avanzarTurno();
+
+            // Notificar cambio de turno
+            Jugador siguienteJugador = partida.getJugadorActual();
+            if (siguienteJugador != null) {
+                // Notificar al siguiente jugador que es su turno
+                JsonObject tuTurno = new JsonObject();
+                tuTurno.addProperty("tipo", "tu_turno");
+                tuTurno.addProperty("jugadorId", siguienteJugador.getId());
+                tuTurno.addProperty("jugadorNombre", siguienteJugador.getNombre());
+
+                ClienteHandler handlerTurno = clienteHandler.getServidor()
+                    .getCliente(siguienteJugador.getSessionId());
+                if (handlerTurno != null) {
+                    handlerTurno.enviarMensaje(tuTurno.toString());
+                }
+
+                // Notificar a los demás del cambio
+                JsonObject cambioTurno = new JsonObject();
+                cambioTurno.addProperty("tipo", "cambio_turno");
+                cambioTurno.addProperty("jugadorId", siguienteJugador.getId());
+                cambioTurno.addProperty("jugadorNombre", siguienteJugador.getNombre());
+
+                clienteHandler.getServidor().broadcastAPartida(
+                    partida.getId(),
+                    cambioTurno.toString(),
+                    siguienteJugador.getSessionId()
+                );
+            }
+
+            return crearRespuestaExito("Turno saltado");
+
+        } catch (Exception e) {
+            return crearRespuestaError("Error saltando turno: " + e.getMessage());
+        }
+    }
+
     
     // ============================
     // UTILIDADES

@@ -9,7 +9,7 @@ import java.net.UnknownHostException;
  * Menú principal del juego - Punto de entrada único.
  * Permite elegir entre ser HOST (crear partida) o CLIENTE (unirse a partida).
  */
-public class MenuPrincipal {
+public class MenuPrincipal {    
     
     private static final String SEPARADOR = "************************************************";
     private static final String SEPARADOR_DOBLE = "================================================";
@@ -177,9 +177,9 @@ public class MenuPrincipal {
         }
         
         // Al terminar, detener servidor
-        if (servidor != null) {
-            servidor.detener();
-        }
+//        if (servidor != null) {
+//            servidor.detener();
+//        }
     }
     
     /**

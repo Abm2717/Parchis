@@ -23,7 +23,7 @@ public class ClienteHandler implements Runnable {
     private boolean conectado;
     
     // Flag para ocultar mensajes de debug
-    private static final boolean MODO_DEBUG = true;
+    private static final boolean MODO_DEBUG = false;
     
     public ClienteHandler(Socket socket, String sessionId, ServidorCentral servidor) {
         this.socket = socket;

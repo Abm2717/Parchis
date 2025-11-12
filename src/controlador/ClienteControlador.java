@@ -6,6 +6,11 @@ import com.google.gson.JsonParser;
 import java.io.*;
 import java.net.Socket;
 
+/**
+ * ✅ CORREGIDO: Soporte para dados independientes
+ * - Guarda dado disponible después de sacar con 5
+ * - Método moverFichaConUnDado() para mover con un solo dado
+ */
 public class ClienteControlador {
     
     private final VistaCliente vista;
@@ -18,6 +23,11 @@ public class ClienteControlador {
     private int partidaActualId;
     private boolean esmiTurno;
     private int ultimoResultadoDados;
+    private int[] ultimosDados = new int[2];
+    private boolean debeVolverATirar = false;
+    private int dadoDisponible = 0;  // ✅ NUEVO: Dado disponible después de sacar con 5
+    
+    private JsonObject ultimoEstadoTablero = null;
     
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
@@ -99,7 +109,6 @@ public class ClienteControlador {
             
             switch (tipo) {
                 case "bienvenida":
-                    // Silencioso
                     break;
                     
                 case "registro_exitoso":
@@ -146,30 +155,55 @@ public class ClienteControlador {
                     
                 case "tu_turno":
                     esmiTurno = true;
+                    System.out.println("[DEBUG] Recibido 'tu_turno' - Activando turno");
                     vista.notificarTurno();
                     break;
                     
-                // Manejo de cambio de turno
                 case "cambio_turno":
                     esmiTurno = false;
                     String nombreTurno = json.get("jugadorNombre").getAsString();
+                    int jugadorTurnoId = json.get("jugadorId").getAsInt();
+                    
+                    if (jugadorTurnoId == jugadorId) {
+                        System.out.println("[DEBUG] Cambio de turno dice que es MI turno");
+                        esmiTurno = true;
+                    }
+                    
                     vista.mostrarCambioTurno(nombreTurno);
                     break;
                     
-                //Manejo de estado del tablero
                 case "estado_tablero":
-                    JsonObject tableroJson = json.getAsJsonObject("tablero"); 
+                    JsonObject tableroJson = json.getAsJsonObject("tablero");
+                    ultimoEstadoTablero = tableroJson;
                     vista.mostrarEstadoTablero(tableroJson);
                     break;
                     
                 case "resultado_dados":
-                    // Nuestro resultado
+                    // ✅ CORREGIDO: Guardar ambos dados y verificar dado disponible
                     JsonObject dados = json.getAsJsonObject("dados");
                     int dado1 = dados.get("dado1").getAsInt();
                     int dado2 = dados.get("dado2").getAsInt();
                     boolean esDoble = dados.get("esDoble").getAsBoolean();
                     
+                    ultimosDados[0] = dado1;
+                    ultimosDados[1] = dado2;
                     ultimoResultadoDados = dado1 + dado2;
+                    
+                    // ✅ Verificar si debe volver a tirar
+                    if (json.has("debeVolverATirar")) {
+                        debeVolverATirar = json.get("debeVolverATirar").getAsBoolean();
+                    } else {
+                        debeVolverATirar = false;
+                    }
+                    
+                    // ✅ NUEVO: Verificar si hay un dado disponible
+                    if (json.has("dadoDisponible")) {
+                        dadoDisponible = json.get("dadoDisponible").getAsInt();
+                        System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
+                    } else {
+                        dadoDisponible = 0;
+                    }
+                    
                     vista.mostrarResultadoDados(dado1, dado2, esDoble);
                     break;
                     
@@ -181,7 +215,10 @@ public class ClienteControlador {
                     break;
                     
                 case "movimiento_exitoso":
-                    esmiTurno = false; // Ya no es nuestro turno
+                    // ✅ Verificar si el turno terminó
+                    if (json.has("turnoTerminado") && json.get("turnoTerminado").getAsBoolean()) {
+                        esmiTurno = false;
+                    }
                     break;
                     
                 case "ficha_movida":
@@ -189,7 +226,19 @@ public class ClienteControlador {
                     int fichaId = json.get("fichaId").getAsInt();
                     int desde = json.get("desde").getAsInt();
                     int hasta = json.get("hasta").getAsInt();
-                    vista.mostrarMovimientoOtroJugador(nombreMov, fichaId, desde, hasta);
+                    boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
+                    
+                    // ✅ NUEVO: Verificar si hay dado disponible después de sacar
+                    if (json.has("dadoDisponible")) {
+                        dadoDisponible = json.get("dadoDisponible").getAsInt();
+                        System.out.println("[DEBUG] Dado disponible después de sacar: " + dadoDisponible);
+                    }
+                    
+                    if (automatico) {
+                        vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
+                    } else {
+                        vista.mostrarMovimientoOtroJugador(nombreMov, fichaId, desde, hasta);
+                    }
                     break;
                     
                 case "ficha_capturada":
@@ -207,6 +256,12 @@ public class ClienteControlador {
                     vista.mostrarGanador(ganador);
                     break;
                     
+                case "penalizacion_tres_dobles":
+                    String jugadorPenalizado = json.get("jugadorNombre").getAsString();
+                    String mensajePenalizacion = json.get("mensaje").getAsString();
+                    vista.mostrarPenalizacionTresDobles(jugadorPenalizado, mensajePenalizacion);
+                    break;
+                    
                 case "error":
                     String mensaje = json.get("mensaje").getAsString();
                     System.err.println("\n[ERROR] " + mensaje);
@@ -216,13 +271,11 @@ public class ClienteControlador {
                     responderPong();
                     break;
                     
-                
                 case "listo_confirmado":
                 case "exito":
                     break;
                     
                 default:
-                    
                     break;
             }
             
@@ -283,15 +336,35 @@ public class ClienteControlador {
         return enviarMensaje(mensaje);
     }
     
-    public boolean moverFicha(int fichaId, int pasos) {
+    /**
+     * ✅ MANTENER: Mueve ficha usando ambos dados (compatible con código anterior)
+     */
+    public boolean moverFicha(int fichaId, int dado1, int dado2) {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "mover_ficha");
         mensaje.addProperty("fichaId", fichaId);
-        mensaje.addProperty("pasos", pasos);
+        mensaje.addProperty("dado1", dado1);
+        mensaje.addProperty("dado2", dado2);
         return enviarMensaje(mensaje);
     }
     
-    //Teemporal
+    /**
+     * ✅ NUEVO: Mueve ficha usando UN SOLO dado
+     * 
+     * @param fichaId ID de la ficha a mover (1-4)
+     * @param valorDado Valor del dado a usar
+     * @param pasarTurno Si true, pasa el turno después de mover
+     * @return true si el mensaje se envió correctamente
+     */
+    public boolean moverFichaConUnDado(int fichaId, int valorDado, boolean pasarTurno) {
+        JsonObject mensaje = new JsonObject();
+        mensaje.addProperty("tipo", "mover_ficha_un_dado");
+        mensaje.addProperty("fichaId", fichaId);
+        mensaje.addProperty("valorDado", valorDado);
+        mensaje.addProperty("pasarTurno", pasarTurno);
+        return enviarMensaje(mensaje);
+    }
+    
     public boolean saltarTurno() {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "saltar_turno");
@@ -305,18 +378,51 @@ public class ClienteControlador {
     }
     
     public void mostrarEstadoPartida() {
-        JsonObject mensaje = new JsonObject();
-        mensaje.addProperty("tipo", "obtener_estado");
-        enviarMensaje(mensaje);
+        vista.mostrarEstadoCompleto(jugadorId, ultimoEstadoTablero);
     }
     
-     
     public boolean esmiTurno() {
         return esmiTurno;
     }
     
     public int getUltimoResultadoDados() {
         return ultimoResultadoDados;
+    }
+    
+    /**
+     * ✅ Retorna ambos dados por separado
+     */
+    public int[] getUltimosDados() {
+        return ultimosDados;
+    }
+    
+    /**
+     * ✅ Indica si el jugador sacó doble y debe volver a tirar
+     */
+    public boolean debeVolverATirar() {
+        return debeVolverATirar;
+    }
+    
+    /**
+     * ✅ NUEVO: Limpia el estado de volver a tirar después de usarlo
+     */
+    public void limpiarDebeVolverATirar() {
+        debeVolverATirar = false;
+    }
+    
+    /**
+     * ✅ NUEVO: Retorna el dado disponible después de sacar con 5
+     * @return Valor del dado disponible, o 0 si no hay ninguno
+     */
+    public int getDadoDisponible() {
+        return dadoDisponible;
+    }
+    
+    /**
+     * ✅ NUEVO: Limpia el dado disponible después de usarlo
+     */
+    public void limpiarDadoDisponible() {
+        dadoDisponible = 0;
     }
     
     public void mostrarJugadoresEnSala() {

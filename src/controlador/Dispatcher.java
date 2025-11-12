@@ -13,6 +13,9 @@ import modelo.partida.Partida;
 import modelo.servicios.PersistenciaServicio;
 import java.util.Optional;
 
+/**
+ * ✅ CORREGIDO: Dispatcher ahora extrae dado1 y dado2 del JSON
+ */
 public class Dispatcher {
     
     private final ClienteHandler clienteHandler;
@@ -82,6 +85,8 @@ public class Dispatcher {
                 return manejarTirarDado(datos);
             case "mover_ficha":
                 return manejarMoverFicha(datos);
+            case "mover_ficha_un_dado":
+                return manejarMoverFichaUnDado(datos);
             case "usar_bonus":
                 return manejarUsarBonus(datos);
             case "obtener_estado":
@@ -135,6 +140,27 @@ public class Dispatcher {
         }
     }
     
+    /**
+    * ✅ CORREGIDO: Maneja el movimiento de ficha con UN solo dado
+    */
+    private String manejarMoverFichaUnDado(JsonObject datos) {
+        if (!datos.has("fichaId") || !datos.has("valorDado")) {
+            return crearRespuestaError("Faltan parametros: fichaId y valorDado requeridos");
+        }
+
+        try {
+            int fichaId = datos.get("fichaId").getAsInt();
+            int valorDado = datos.get("valorDado").getAsInt();
+            boolean pasarTurno = datos.has("pasarTurno") && datos.get("pasarTurno").getAsBoolean();
+
+            // ✅ CORREGIDO: Usar this.clienteHandler (NO this.handler)
+            return ctrlMoverFicha.moverConUnDado(this.clienteHandler, fichaId, valorDado, pasarTurno);
+
+        } catch (Exception e) {
+            return crearRespuestaError("Error moviendo ficha con un dado: " + e.getMessage());
+        }
+    }
+    
     private String manejarListarSalas() {
         try {
             return ctrlUnirse.listarSalasDisponibles(clienteHandler);
@@ -167,14 +193,18 @@ public class Dispatcher {
         }
     }
     
+    /**
+     * ✅ CORREGIDO: Ahora extrae dado1 y dado2 por separado
+     */
     private String manejarMoverFicha(JsonObject datos) {
         try {
-            if (!datos.has("fichaId") || !datos.has("pasos")) {
-                return crearRespuestaError("Faltan parametros: fichaId y pasos");
+            if (!datos.has("fichaId") || !datos.has("dado1") || !datos.has("dado2")) {
+                return crearRespuestaError("Faltan parametros: fichaId, dado1 y dado2");
             }
             int fichaId = datos.get("fichaId").getAsInt();
-            int pasos = datos.get("pasos").getAsInt();
-            return ctrlMoverFicha.ejecutar(clienteHandler, fichaId, pasos);
+            int dado1 = datos.get("dado1").getAsInt();  // ✅ CAMBIO
+            int dado2 = datos.get("dado2").getAsInt();  // ✅ CAMBIO
+            return ctrlMoverFicha.ejecutar(clienteHandler, fichaId, dado1, dado2);  // ✅ CAMBIO
         } catch (Exception e) {
             return crearRespuestaError("Error moviendo ficha: " + e.getMessage());
         }
@@ -210,7 +240,7 @@ public class Dispatcher {
             if (!partida.esTurnoDeJugador(jugador.getId())) return crearRespuestaError("No es tu turno");
             
             partida.avanzarTurno();
-            
+             
             Jugador siguienteJugador = partida.getJugadorActual();
             if (siguienteJugador != null) {
                 JsonObject tuTurno = new JsonObject();

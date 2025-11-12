@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * Tablero de Parchis con metodos extendidos para el MotorJuego.
+ * ✅ CORREGIDO: Método rutaContieneBarreraExcluyendoOrigen agregado
  * 
  * Estructura del tablero (68 casillas normales + 8 metas):
  * - Casillas 1-68: recorrido principal circular
@@ -66,12 +67,24 @@ public class Tablero {
             casillas.add(new Casilla(i, i, color, tipo, capacidad));
         }
         
-        // Casillas 69-76: pasillos/metas (rojo y azul)
+        // Casillas 69-72: pasillos/metas ROJO
         for (int i = 69; i <= 72; i++) {
             casillas.add(new Casilla(i, 0, ColorCasilla.ROJO, TipoCasilla.META, 1));
         }
+        
+        // Casillas 73-76: pasillos/metas AZUL
         for (int i = 73; i <= 76; i++) {
             casillas.add(new Casilla(i, 0, ColorCasilla.AZUL, TipoCasilla.META, 1));
+        }
+        
+        // ✅ NUEVO: Casillas 77-80: pasillos/metas AMARILLO
+        for (int i = 77; i <= 80; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.AMARILLO, TipoCasilla.META, 1));
+        }
+        
+        // ✅ NUEVO: Casillas 81-84: pasillos/metas VERDE
+        for (int i = 81; i <= 84; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.VERDE, TipoCasilla.META, 1));
         }
   
     }
@@ -109,8 +122,11 @@ public class Tablero {
     }
     
     /**
-     * Calcula la casilla destino tras mover N pasos desde origen.
+     * ✅ CORREGIDO: Calcula la casilla destino tras mover N pasos desde origen.
      * Maneja el recorrido circular y entrada a pasillos de meta.
+     * 
+     * REGLA CRÍTICA: Solo entra al pasillo si viene del RECORRIDO NORMAL,
+     * no si sale directamente de la casilla de INICIO del mismo color.
      */
     public int calcularDestino(int indiceOrigen, int pasos, int jugadorId) {
         Jugador jugador = jugadorPorId.get(jugadorId);
@@ -119,18 +135,39 @@ public class Tablero {
         }
         
         ColorCasilla colorJugador = jugador.getColorCasilla();
+        Integer casillaSalida = CASILLAS_SALIDA.get(colorJugador);
+        Integer entradaPasillo = CASILLA_ENTRADA_META.get(colorJugador);
         
         // Si esta en pasillo, moverse dentro del pasillo
         if (indiceOrigen >= 69) {
             return calcularEnPasillo(indiceOrigen, pasos, colorJugador);
         }
         
-        // Movimiento en tablero principal
-        int nuevaPosicion = indiceOrigen + pasos;
-        Integer entradaPasillo = CASILLA_ENTRADA_META.get(colorJugador);
+        // ✅ CRÍTICO: Si está en su propia casilla de INICIO, NO puede entrar directamente al pasillo
+        // Debe dar toda la vuelta primero
+        if (casillaSalida != null && indiceOrigen == casillaSalida) {
+            // Movimiento normal circular desde INICIO
+            int nuevaPosicion = indiceOrigen + pasos;
+            
+            if (nuevaPosicion > CASILLAS_NORMALES) {
+                nuevaPosicion = nuevaPosicion - CASILLAS_NORMALES;
+            }
+            
+            return nuevaPosicion;
+        }
         
-        // Si pasa o llega a su entrada de pasillo, entrar
-        if (entradaPasillo != null && nuevaPosicion >= entradaPasillo) {
+        // Movimiento en tablero principal (NO desde INICIO)
+        int nuevaPosicion = indiceOrigen + pasos;
+        
+        // ✅ CORREGIDO: Solo entra al pasillo si:
+        // 1. Está ANTES de la entrada (indiceOrigen < entradaPasillo)
+        // 2. El movimiento lo lleva A o DESPUÉS de la entrada (nuevaPosicion >= entradaPasillo)
+        // 3. No se pasa del tablero circular (nuevaPosicion <= CASILLAS_NORMALES)
+        if (entradaPasillo != null && 
+            indiceOrigen < entradaPasillo && 
+            nuevaPosicion >= entradaPasillo && 
+            nuevaPosicion <= CASILLAS_NORMALES) {
+            
             int pasosEnPasillo = nuevaPosicion - entradaPasillo;
             int primerCasillaPasillo = ENTRADA_PASILLO.get(colorJugador);
             return primerCasillaPasillo + pasosEnPasillo;
@@ -236,6 +273,42 @@ public class Tablero {
             
             // Prevenir bucle infinito
             if (actual == indiceOrigen) {
+                break;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * ✅ NUEVO: Verifica si hay una barrera en la ruta EXCLUYENDO la casilla de origen
+     * Esto permite que una ficha pueda salir de su propia barrera
+     * 
+     * @param indiceOrigen Casilla desde donde se mueve (se EXCLUYE de la verificación)
+     * @param indiceDestino Casilla de destino
+     * @return true si hay barrera en el camino (sin contar el origen)
+     */
+    public boolean rutaContieneBarreraExcluyendoOrigen(int indiceOrigen, int indiceDestino) {
+        int actual = indiceOrigen;
+        int contador = 0;
+        int maxIteraciones = 70; // Prevenir bucles infinitos
+        
+        while (actual != indiceDestino && contador < maxIteraciones) {
+            actual = siguienteCasilla(actual);
+            contador++;
+            
+            // ✅ CRÍTICO: NO verificar la casilla de origen
+            if (actual == indiceOrigen) {
+                break; // Dio la vuelta completa
+            }
+            
+            // ✅ Verificar barrera en esta casilla (que NO es el origen)
+            if (actual != indiceDestino && esBarrera(actual)) {
+                return true; // Hay barrera bloqueando el camino
+            }
+            
+            // Si llegamos al destino, verificar si ahí hay barrera
+            if (actual == indiceDestino) {
                 break;
             }
         }
@@ -421,7 +494,7 @@ public class Tablero {
             JsonArray fichasArr = new JsonArray();
             for (Ficha f : c.getFichas()) {
                 JsonObject fObj = new JsonObject();
-                fObj.addProperty("id", f.getId());
+                fObj.addProperty("id", f.getId());  
                 fObj.addProperty("jugadorId", f.getIdJugador());
                 fObj.addProperty("color", f.getColor().name());
                 fObj.addProperty("estado", f.getEstado().name());

@@ -1,5 +1,6 @@
 package modelo.partida;
 
+import java.util.Arrays;
 import modelo.Jugador.Jugador;
 import modelo.Ficha.Ficha;
 import modelo.Ficha.EstadoFicha;
@@ -13,7 +14,10 @@ import java.util.stream.Collectors;
 
 /**
  * MotorJuego - Motor de reglas del Parchis.
- * 
+ * ✅ CORREGIDO: 
+ * - Dados independientes
+ * - Regla del 5 mejorada (si sale un 5, el otro dado queda disponible)
+ * - Barreras corregidas (casillas de INICIO son independientes)
  */
 public class MotorJuego {
 
@@ -63,16 +67,6 @@ public class MotorJuego {
     }
 
 
-    /**
-     * Tira ambos dados y aplica reglas de doble:
-     * - Si es doble, intenta romper bloqueo PROPIO del jugador
-     * - Si es doble, el jugador puede volver a tirar (manejado por controlador)
-     * - Si saca 3 dobles consecutivos, pierde una ficha
-     * 
-     * @param jugadorId ID del jugador que tira los dados
-     * @return Array [dado1, dado2] con los valores obtenidos
-     * @throws NoEsTuTurnoException si no es el turno del jugador
-     */
     public synchronized ResultadoDados tirarDados(int jugadorId) {
         validarTurno(jugadorId);
         
@@ -81,24 +75,20 @@ public class MotorJuego {
         boolean esDoble = (v1 == v2);
         
         if (!esDoble) {
-            // No es doble -> resetear contador
             contadorDobles.put(jugadorId, 0);
             return new ResultadoDados(v1, v2, false, false);
         }
         
-        // ES DOBLE
         int cont = contadorDobles.getOrDefault(jugadorId, 0) + 1;
         contadorDobles.put(jugadorId, cont);
         
         boolean bloqueoRoto = false;
         boolean fichaPerdida = false;
         
-        // Intentar romper bloqueo PROPIO
         if (tieneBloqueoPropio(jugadorId)) {
             bloqueoRoto = romperBloqueoPropioSiExiste(jugadorId);
         }
         
-        // Penalizacon por 3 dobles consecutivos
         if (cont >= 3) {
             perderFichaPorTresDobles(jugadorId);
             contadorDobles.put(jugadorId, 0);
@@ -109,21 +99,144 @@ public class MotorJuego {
     }
 
     /**
-     * Mueve una ficha segun el numero de pasos indicado.
-     * Valida todas las reglas: salida, bloqueos, capturas, casillas seguras.
+     * ✅ NUEVO: Mueve una ficha con UN SOLO dado
+     * Esto permite usar dados independientemente
      * 
      * @param jugadorId ID del jugador
      * @param fichaId ID de la ficha a mover
-     * @param pasos Numero de casillas a avanzar
-     * @return Resultado del movimiento con informacon de capturas y bonos
-     * @throws NoEsTuTurnoException si no es el turno del jugador
-     * @throws MovimientoInvalidoException si el movimiento viola alguna regla
+     * @param valorDado Valor de UN solo dado (no la suma)
+     * @return Resultado del movimiento
      */
-    public synchronized ResultadoMovimiento moverFicha(int jugadorId, int fichaId, int pasos) {
+    public synchronized ResultadoMovimiento moverFichaConUnDado(int jugadorId, int fichaId, int valorDado) {
         validarTurno(jugadorId);
         
-        if (pasos <= 0) {
-            throw new MovimientoInvalidoException("Los pasos deben ser positivos");
+        if (valorDado <= 0) {
+            throw new MovimientoInvalidoException("El valor del dado debe ser positivo");
+        }
+
+        Ficha ficha = partida.getFicha(jugadorId, fichaId);
+        if (ficha == null) {
+            throw new FichaNoEncontradaException("Ficha no encontrada: " + fichaId);
+        }
+
+        // ✅ Si la ficha está en casa, no puede moverse con un solo dado
+        // (debe usar la regla del 5)
+        if (ficha.estaEnCasa()) {
+            throw new MovimientoInvalidoException(
+                "No puedes mover una ficha en casa. Debes sacarla primero con un 5."
+            );
+        }
+
+        Tablero tablero = partida.getTablero();
+        ResultadoMovimiento resultado = new ResultadoMovimiento();
+        
+        return moverFichaEnTablero(ficha, jugadorId, valorDado, tablero, resultado);
+    }
+
+    /**
+     * ✅ CORREGIDO: Saca una ficha de casa según la regla del 5
+     * 
+     * REGLAS:
+     * 1. Si dado1==5 O dado2==5 → Saca con ese dado, el OTRO queda disponible
+     * 2. Si dado1+dado2==5 (sin ningún 5) → Saca con la suma, consume AMBOS dados
+     * 
+     * @param jugadorId ID del jugador
+     * @param fichaId ID de la ficha a sacar
+     * @param dado1 Valor del primer dado
+     * @param dado2 Valor del segundo dado
+     * @return Resultado que indica qué dados se usaron
+     */
+    public synchronized ResultadoSacar sacarFichaDeCasa(int jugadorId, int fichaId, int dado1, int dado2) {
+        validarTurno(jugadorId);
+        
+        Ficha ficha = partida.getFicha(jugadorId, fichaId);
+        if (ficha == null) {
+            throw new FichaNoEncontradaException("Ficha no encontrada: " + fichaId);
+        }
+        
+        if (!ficha.estaEnCasa()) {
+            throw new MovimientoInvalidoException("La ficha no está en casa");
+        }
+        
+        // ✅ VERIFICAR REGLA DEL 5
+        boolean dado1Es5 = (dado1 == 5);
+        boolean dado2Es5 = (dado2 == 5);
+        boolean sumaEs5 = (dado1 + dado2 == 5);
+        
+        if (!dado1Es5 && !dado2Es5 && !sumaEs5) {
+            throw new MovimientoInvalidoException(
+                "No puedes sacar ficha. Necesitas un 5 en cualquier dado o que la suma sea 5."
+            );
+        }
+        
+        Tablero tablero = partida.getTablero();
+        Casilla salida = tablero.getCasillaSalidaParaJugador(jugadorId);
+        
+        // Verificar bloqueos
+        if (salidaBloqueadaPorRival(salida, jugadorId)) {
+            throw new MovimientoInvalidoException("La casilla de salida está bloqueada por un rival");
+        }
+        
+        int fichasEnSalida = contarFichasPropiasEnCasilla(salida, jugadorId);
+        if (fichasEnSalida >= 2) {
+            throw new MovimientoInvalidoException("Ya tienes 2 fichas en la salida");
+        }
+        
+        // ✅ SACAR LA FICHA
+        ficha.moverA(salida);
+        ficha.setEstado(EstadoFicha.EN_TABLERO);
+        
+        ResultadoSacar resultado = new ResultadoSacar();
+        resultado.fichaId = fichaId;
+        resultado.casillaLlegada = salida.getIndice();
+        resultado.movimientoExitoso = true;
+        
+        // ✅ DETERMINAR QUÉ DADOS SE USARON
+        if (dado1Es5 && dado2Es5) {
+            // Ambos son 5 (es doble) - se usa solo uno para sacar
+            resultado.dado1Usado = true;
+            resultado.dado2Disponible = dado2;
+            resultado.mensajeExtra = "Sacaste con el primer 5. Tienes un 5 disponible para mover.";
+            
+        } else if (dado1Es5) {
+            // Solo dado1 es 5 - el dado2 queda disponible
+            resultado.dado1Usado = true;
+            resultado.dado2Disponible = dado2;
+            resultado.mensajeExtra = "Sacaste con el 5. Tienes un " + dado2 + " disponible para mover.";
+            
+        } else if (dado2Es5) {
+            // Solo dado2 es 5 - el dado1 queda disponible
+            resultado.dado2Usado = true;
+            resultado.dado1Disponible = dado1;
+            resultado.mensajeExtra = "Sacaste con el 5. Tienes un " + dado1 + " disponible para mover.";
+            
+        } else if (sumaEs5) {
+            // La suma es 5 (ej: 3+2, 4+1) - se consumen AMBOS dados
+            resultado.dado1Usado = true;
+            resultado.dado2Usado = true;
+            resultado.mensajeExtra = "Sacaste con la suma de ambos dados (" + dado1 + "+" + dado2 + "=5).";
+        }
+        
+        // Verificar captura al sacar
+        if (!salida.isSegura()) {
+            Ficha rival = buscarFichaRivalEnCasilla(salida, jugadorId);
+            if (rival != null) {
+                procesarCaptura(rival, jugadorId, resultado);
+            }
+        }
+        
+        return resultado;
+    }
+
+    /**
+     * ✅ MANTENER: Método original para compatibilidad
+     * Este se usa cuando el servidor maneja automáticamente el sacar con 5
+     */
+    public synchronized ResultadoMovimiento moverFicha(int jugadorId, int fichaId, int dado1, int dado2) {
+        validarTurno(jugadorId);
+        
+        if (dado1 <= 0 || dado2 <= 0) {
+            throw new MovimientoInvalidoException("Los dados deben ser positivos");
         }
 
         Ficha ficha = partida.getFicha(jugadorId, fichaId);
@@ -134,78 +247,48 @@ public class MotorJuego {
         Tablero tablero = partida.getTablero();
         ResultadoMovimiento resultado = new ResultadoMovimiento();
 
-        // CASO 1: Ficha esta en casa -> intentar sacar
+        // CASO 1: Ficha en casa -> sacar con regla del 5
         if (ficha.estaEnCasa()) {
-            return sacarFichaDeCasa(ficha, jugadorId, pasos, resultado);
+            return sacarYMoverConAmbos(ficha, jugadorId, dado1, dado2, resultado, tablero);
         }
 
-        // CASO 2: Ficha esta en tablero -> mover normal
+        // CASO 2: Ficha en tablero -> usar la suma
+        int pasos = dado1 + dado2;
         return moverFichaEnTablero(ficha, jugadorId, pasos, tablero, resultado);
     }
-
+    
     /**
-     * Permite usar movimientos bonus acumulados para mover cualquier ficha.
-     * 
-     * @param jugadorId ID del jugador
-     * @param fichaId ID de la ficha a mover
-     * @param pasos Cantidad de bonus a consumir
-     * @return Resultado del movimiento
+     * ✅ HELPER: Saca y mueve con ambos dados (para auto-movimientos)
      */
-    public synchronized ResultadoMovimiento usarBonus(int jugadorId, int fichaId, int pasos) {
-        int disponible = bonusMoves.getOrDefault(jugadorId, 0);
+    private ResultadoMovimiento sacarYMoverConAmbos(Ficha ficha, int jugadorId, int dado1, int dado2,
+                                                     ResultadoMovimiento resultado, Tablero tablero) {
+        boolean dado1Es5 = (dado1 == 5);
+        boolean dado2Es5 = (dado2 == 5);
+        boolean sumaEs5 = (dado1 + dado2 == 5);
         
-        if (disponible <= 0) {
-            throw new MovimientoInvalidoException("No tienes movimientos bonus disponibles");
-        }
-        
-        if (pasos > disponible) {
+        if (!dado1Es5 && !dado2Es5 && !sumaEs5) {
             throw new MovimientoInvalidoException(
-                "No tienes suficientes bonus. Disponible: " + disponible + ", solicitado: " + pasos
-            );
-        }
-        
-        // Consumir bonus
-        bonusMoves.put(jugadorId, disponible - pasos);
-        
-        // Realizar movimiento (sin avanzar turno)
-        ResultadoMovimiento resultado = moverFichaSinValidarTurno(jugadorId, fichaId, pasos);
-        resultado.bonusConsumido = pasos;
-        resultado.bonusRestante = bonusMoves.get(jugadorId);
-        
-        return resultado;
-    }
-
-
-    private ResultadoMovimiento sacarFichaDeCasa(Ficha ficha, int jugadorId, int pasos, 
-                                                  ResultadoMovimiento resultado) {
-        if (!puedeSacarConPasos(pasos)) {
-            throw new MovimientoInvalidoException(
-                "No puedes sacar ficha con " + pasos + ". Necesitas un 5."
+                "No puedes sacar ficha. Necesitas un 5 en cualquier dado o que la suma sea 5."
             );
         }
 
-        Tablero tablero = partida.getTablero();
         Casilla salida = tablero.getCasillaSalidaParaJugador(jugadorId);
         
-        // Validar que la salida no este bloqueada por rival
         if (salidaBloqueadaPorRival(salida, jugadorId)) {
-            throw new MovimientoInvalidoException("La casilla de salida esta bloqueada por un rival");
+            throw new MovimientoInvalidoException("La casilla de salida está bloqueada por un rival");
         }
         
-        // Validar limite de 2 fichas en salida
         int fichasEnSalida = contarFichasPropiasEnCasilla(salida, jugadorId);
         if (fichasEnSalida >= 2) {
             throw new MovimientoInvalidoException("Ya tienes 2 fichas en la salida");
         }
         
-        // Sacar ficha
         ficha.moverA(salida);
         ficha.setEstado(EstadoFicha.EN_TABLERO);
         resultado.movimientoExitoso = true;
-        resultado.casillaSalida = -1; // casa
+        resultado.casillaSalida = -1;
         resultado.casillaLlegada = salida.getIndice();
         
-        // Verificar captura en salida
         if (!salida.isSegura()) {
             Ficha rival = buscarFichaRivalEnCasilla(salida, jugadorId);
             if (rival != null) {
@@ -226,22 +309,27 @@ public class MotorJuego {
         int indiceOrigen = origen.getIndice();
         int indiceDestino = tablero.calcularDestino(indiceOrigen, pasos, jugadorId);
         
-        // Validar que no haya barreras en el camino
-        if (hayBarreraEnRuta(indiceOrigen, indiceDestino, jugadorId)) {
+        // ✅ CORREGIDO: Verificar barreras correctamente
+        if (hayBarreraEnRuta(indiceOrigen, indiceDestino, jugadorId, tablero)) {
             throw new MovimientoInvalidoException("Hay una barrera bloqueando el camino");
         }
         
         Casilla destino = tablero.getCasilla(indiceDestino);
         
-        // Registrar posiciones
+        // ✅ CRÍTICO: Verificar que el destino existe
+        if (destino == null) {
+            throw new MovimientoInvalidoException(
+                "Movimiento invalido: la casilla destino (" + indiceDestino + ") no existe. " +
+                "Origen: " + indiceOrigen + ", Pasos: " + pasos
+            );
+        }
+        
         resultado.casillaSalida = indiceOrigen;
         resultado.casillaLlegada = indiceDestino;
         
-        // Mover ficha
         ficha.moverA(destino);
         resultado.movimientoExitoso = true;
         
-        // Verificar captura (solo si no es casilla segura)
         if (!destino.isSegura()) {
             Ficha rival = buscarFichaRivalEnCasilla(destino, jugadorId);
             if (rival != null) {
@@ -249,7 +337,6 @@ public class MotorJuego {
             }
         }
         
-        // Verificar llegada a meta
         if (tablero.esMeta(destino, jugadorId)) {
             procesarLlegadaMeta(jugadorId, ficha, resultado);
         }
@@ -257,34 +344,54 @@ public class MotorJuego {
         return resultado;
     }
 
-    private ResultadoMovimiento moverFichaSinValidarTurno(int jugadorId, int fichaId, int pasos) {
-        Ficha ficha = partida.getFicha(jugadorId, fichaId);
-        if (ficha == null) {
-            throw new FichaNoEncontradaException("Ficha no encontrada: " + fichaId);
+    public synchronized ResultadoMovimiento usarBonus(int jugadorId, int fichaId, int pasos) {
+        int disponible = bonusMoves.getOrDefault(jugadorId, 0);
+        
+        if (disponible <= 0) {
+            throw new MovimientoInvalidoException("No tienes movimientos bonus disponibles");
         }
         
-        if (ficha.estaEnCasa()) {
-            throw new MovimientoInvalidoException("No puedes mover una ficha que esta en casa con bonus");
+        if (pasos > disponible) {
+            throw new MovimientoInvalidoException(
+                "No tienes suficientes bonus. Disponible: " + disponible + ", solicitado: " + pasos
+            );
         }
         
-        Tablero tablero = partida.getTablero();
-        ResultadoMovimiento resultado = new ResultadoMovimiento();
+        bonusMoves.put(jugadorId, disponible - pasos);
         
-        return moverFichaEnTablero(ficha, jugadorId, pasos, tablero, resultado);
+        ResultadoMovimiento resultado = moverFichaSinValidarTurno(jugadorId, fichaId, pasos);
+        resultado.bonusConsumido = pasos;
+        resultado.bonusRestante = bonusMoves.get(jugadorId);
+        
+        return resultado;
     }
 
-    
     private void procesarCaptura(Ficha fichaCapturada, int jugadorCapturador, 
                                   ResultadoMovimiento resultado) {
-        // Enviar ficha capturada a casa
         int jugadorCapturado = fichaCapturada.getIdJugador();
         enviarFichaACasa(fichaCapturada);
         
-        // Otorgar 20 casillas de bonus al capturador
         int bonusActual = bonusMoves.getOrDefault(jugadorCapturador, 0);
         bonusMoves.put(jugadorCapturador, bonusActual + 20);
         
-        // Registrar en resultado
+        resultado.capturaRealizada = true;
+        resultado.fichaCapturadaId = fichaCapturada.getId();
+        resultado.jugadorCapturadoId = jugadorCapturado;
+        resultado.bonusGanado = 20;
+        resultado.bonusTotal = bonusActual + 20;
+    }
+    
+    /**
+     * ✅ SOBRECARGA: Para ResultadoSacar también
+     */
+    private void procesarCaptura(Ficha fichaCapturada, int jugadorCapturador, 
+                                  ResultadoSacar resultado) {
+        int jugadorCapturado = fichaCapturada.getIdJugador();
+        enviarFichaACasa(fichaCapturada);
+        
+        int bonusActual = bonusMoves.getOrDefault(jugadorCapturador, 0);
+        bonusMoves.put(jugadorCapturador, bonusActual + 20);
+        
         resultado.capturaRealizada = true;
         resultado.fichaCapturadaId = fichaCapturada.getId();
         resultado.jugadorCapturadoId = jugadorCapturado;
@@ -313,7 +420,6 @@ public class MotorJuego {
         
         if (jugador == null) return false;
         
-        // Buscar si alguna casilla tiene 2+ fichas propias
         Map<Integer, List<Ficha>> fichasPorCasilla = new HashMap<>();
         
         for (Ficha ficha : jugador.getFichas()) {
@@ -331,25 +437,40 @@ public class MotorJuego {
             Tablero tablero = partida.getTablero();
             return tablero.romperBloqueoPropio(jugadorId);
         } catch (UnsupportedOperationException e) {
-            
             return false;
         }
     }
 
-    private boolean hayBarreraEnRuta(int origenIdx, int destinoIdx, int jugadorId) {
-        Tablero tablero = partida.getTablero();
-        return tablero.rutaContieneBarrera(origenIdx, destinoIdx);
+    /**
+     * ✅ CORREGIDO: Detección de barreras mejorada
+     * - Las casillas de INICIO (1, 18, 35, 52) son INDEPENDIENTES entre sí
+     * - La casilla de ORIGEN se EXCLUYE (puedes salir de tu propia barrera)
+     * - Solo se verifica barreras EN EL CAMINO (excluyendo origen y destino)
+     */
+    private boolean hayBarreraEnRuta(int origenIdx, int destinoIdx, int jugadorId, Tablero tablero) {
+        // ✅ Casillas de INICIO por color
+        List<Integer> casillasInicio = Arrays.asList(1, 18, 35, 52);
+        
+        // Si AMBAS casillas son de INICIO pero DIFERENTES colores
+        // NO puede haber barrera entre ellas (son independientes)
+        if (casillasInicio.contains(origenIdx) && casillasInicio.contains(destinoIdx)) {
+            if (origenIdx != destinoIdx) {
+                // Diferentes casillas de inicio = independientes = sin barrera
+                return false;
+            }
+        }
+        
+        // ✅ CRÍTICO: Verificar barreras EXCLUYENDO la casilla de origen
+        // Si tienes 2 fichas en el origen, puedes salir (no estás bloqueado por tu propia barrera)
+        return tablero.rutaContieneBarreraExcluyendoOrigen(origenIdx, destinoIdx);
     }
 
     private boolean salidaBloqueadaPorRival(Casilla salida, int jugadorId) {
-        // Verificar si hay un bloqueo rival en la casilla de salida
         List<Ficha> fichasEnSalida = obtenerFichasEnCasilla(salida);
         
-        // Contar fichas por jugador
         Map<Integer, Long> fichasPorJugador = fichasEnSalida.stream()
             .collect(Collectors.groupingBy(Ficha::getIdJugador, Collectors.counting()));
         
-        // Hay bloqueo rival si algun otro jugador tiene 2+ fichas
         return fichasPorJugador.entrySet().stream()
             .anyMatch(entry -> entry.getKey() != jugadorId && entry.getValue() >= 2);
     }
@@ -384,10 +505,6 @@ public class MotorJuego {
         ficha.setEstado(EstadoFicha.EN_CASA);
     }
 
-    private boolean puedeSacarConPasos(int pasos) {
-        return pasos == 5; // Regla: solo se saca con 5
-    }
-
     private void validarTurno(int jugadorId) {
         Jugador actual = partida.getJugadorActual();
         if (actual == null || actual.getId() != jugadorId) {
@@ -397,21 +514,48 @@ public class MotorJuego {
         }
     }
 
+    public synchronized ResultadoMovimiento moverFichaSinValidarTurno(int jugadorId, int fichaId, int pasos) {
+        Ficha ficha = partida.getFicha(jugadorId, fichaId);
+        if (ficha == null) {
+            throw new FichaNoEncontradaException("Ficha no encontrada: " + fichaId);
+        }
+        
+        if (ficha.estaEnCasa()) {
+            throw new MovimientoInvalidoException("No puedes mover una ficha que esta en casa con bonus");
+        }
+        
+        Tablero tablero = partida.getTablero();
+        ResultadoMovimiento resultado = new ResultadoMovimiento();
+        
+        return moverFichaEnTablero(ficha, jugadorId, pasos, tablero, resultado);
+    }
   
+    /**
+     * ✅ Penalización por 3 dobles consecutivos
+     */
     private void perderFichaPorTresDobles(int jugadorId) {
         Jugador jugador = partida.getJugadorPorId(jugadorId);
         if (jugador == null) return;
         
-        // Buscar una ficha en tablero para enviarla a casa
-        Ficha fichaAPenalizar = jugador.getFichas().stream()
-            .filter(f -> !f.estaEnCasa())
-            .findFirst()
+        Ficha fichaMasAdelantada = jugador.getFichas().stream()
+            .filter(f -> !f.estaEnCasa() && !f.estaEnMeta())
+            .max((f1, f2) -> {
+                Casilla c1 = f1.getCasillaActual();
+                Casilla c2 = f2.getCasillaActual();
+                if (c1 == null) return -1;
+                if (c2 == null) return 1;
+                return Integer.compare(c1.getIndice(), c2.getIndice());
+            })
             .orElse(null);
         
-        if (fichaAPenalizar != null) {
-            enviarFichaACasa(fichaAPenalizar);
+        if (fichaMasAdelantada != null) {
+            System.out.println("[PENALIZACION] " + jugador.getNombre() + 
+                             " sacó 3 dobles. Ficha #" + fichaMasAdelantada.getId() + 
+                             " regresa a casa.");
+            enviarFichaACasa(fichaMasAdelantada);
         } else {
-            
+            System.out.println("[PENALIZACION] " + jugador.getNombre() + 
+                             " sacó 3 dobles pero no tiene fichas en tablero.");
         }
     }
 
@@ -435,9 +579,10 @@ public class MotorJuego {
     }
 
 
-    /**
-     * Resultado de tirar los dados
-     */
+    // ========================================
+    // CLASES DE RESULTADO
+    // ========================================
+    
     public static class ResultadoDados {
         public final int dado1;
         public final int dado2;
@@ -472,26 +617,79 @@ public class MotorJuego {
     }
 
     /**
-     * Resultado de un movimiento de ficha
+     * ✅ NUEVO: Resultado específico para sacar fichas
+     * Indica qué dados se usaron y cuáles quedan disponibles
      */
-    public static class ResultadoMovimiento {
+    public static class ResultadoSacar {
         public boolean movimientoExitoso = false;
-        public int casillaSalida = -1;
+        public int fichaId = -1;
         public int casillaLlegada = -1;
         
-        // Captura
+        // ✅ Control de dados usados
+        public boolean dado1Usado = false;
+        public boolean dado2Usado = false;
+        public int dado1Disponible = -1; // -1 si no está disponible
+        public int dado2Disponible = -1; // -1 si no está disponible
+        public String mensajeExtra = "";
+        
+        // Captura (igual que ResultadoMovimiento)
         public boolean capturaRealizada = false;
         public int fichaCapturadaId = -1;
         public int jugadorCapturadoId = -1;
         public int bonusGanado = 0;
         public int bonusTotal = 0;
         
-        // Meta
+        /**
+         * Verifica si hay un dado disponible para usar
+         */
+        public boolean hayDadoDisponible() {
+            return dado1Disponible > 0 || dado2Disponible > 0;
+        }
+        
+        /**
+         * Obtiene el valor del dado disponible (o 0 si ninguno)
+         */
+        public int getDadoDisponible() {
+            if (dado1Disponible > 0) return dado1Disponible;
+            if (dado2Disponible > 0) return dado2Disponible;
+            return 0;
+        }
+        
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder("Sacar[");
+            sb.append("ficha:").append(fichaId);
+            sb.append(" -> casilla:").append(casillaLlegada);
+            if (dado1Usado && dado2Usado) {
+                sb.append(" (ambos dados usados)");
+            } else if (dado1Disponible > 0) {
+                sb.append(" (dado ").append(dado1Disponible).append(" disponible)");
+            } else if (dado2Disponible > 0) {
+                sb.append(" (dado ").append(dado2Disponible).append(" disponible)");
+            }
+            if (capturaRealizada) {
+                sb.append(" CAPTURA (+").append(bonusGanado).append(")");
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+    }
+
+    public static class ResultadoMovimiento {
+        public boolean movimientoExitoso = false;
+        public int casillaSalida = -1;
+        public int casillaLlegada = -1;
+        
+        public boolean capturaRealizada = false;
+        public int fichaCapturadaId = -1;
+        public int jugadorCapturadoId = -1;
+        public int bonusGanado = 0;
+        public int bonusTotal = 0;
+        
         public boolean llegadaMeta = false;
         public int bonusPuntosMeta = 0;
         public int puntosTotal = 0;
         
-        // Uso de bonus
         public int bonusConsumido = 0;
         public int bonusRestante = 0;
         

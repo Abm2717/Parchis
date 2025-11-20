@@ -26,6 +26,7 @@ public class ClienteControlador {
     private int[] ultimosDados = new int[2];
     private boolean debeVolverATirar = false;
     private int dadoDisponible = 0;  // ✅ NUEVO: Dado disponible después de sacar con 5
+    private boolean tieneFichasEnJuego = false;  // ✅ NUEVO: Si tiene fichas fuera de casa
     
     private JsonObject ultimoEstadoTablero = null;
     
@@ -202,6 +203,14 @@ public class ClienteControlador {
                         System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
                     } else {
                         dadoDisponible = 0;
+                    }
+                    
+                    // ✅ NUEVO: Verificar si tiene fichas en juego
+                    if (json.has("tieneFichasEnJuego")) {
+                        tieneFichasEnJuego = json.get("tieneFichasEnJuego").getAsBoolean();
+                        System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
+                    } else {
+                        tieneFichasEnJuego = false;
                     }
                     
                     vista.mostrarResultadoDados(dado1, dado2, esDoble);
@@ -408,6 +417,13 @@ public class ClienteControlador {
      */
     public void limpiarDebeVolverATirar() {
         debeVolverATirar = false;
+    }
+    
+    /**
+     * ✅ NUEVO: Indica si el jugador tiene fichas en juego (fuera de casa)
+     */
+    public boolean tieneFichasEnJuego() {
+        return tieneFichasEnJuego;
     }
     
     /**

@@ -62,7 +62,7 @@ public class MenuPrincipal {
         System.out.println("\n" + SEPARADOR_DOBLE);
         System.out.println("*                                              *");
         System.out.println("*              JUEGO DE PARCHIS                *");
-        System.out.println("*                  v1.3                        *");
+        System.out.println("*                                              *");
         System.out.println("*                                              *");
         System.out.println(SEPARADOR_DOBLE);
         System.out.println();

@@ -430,7 +430,8 @@ public class CtrlTirarDado {
             cliente.getSessionId()
         );
         
-        JsonObject respuestaLocal = crearRespuestaResultado(resultado);
+        // ✅ Usar el nuevo método que incluye tieneFichasEnJuego
+        JsonObject respuestaLocal = crearRespuestaResultadoConJugador(resultado, jugador);
         cliente.enviarMensaje(respuestaLocal.toString());
     }
     
@@ -568,6 +569,21 @@ public class CtrlTirarDado {
         } else {
             respuesta.addProperty("mensaje", "Dados lanzados");
         }
+        
+        return respuesta;
+    }
+    
+    /**
+     * ✅ NUEVO: Versión mejorada que incluye información sobre fichas en juego
+     */
+    private JsonObject crearRespuestaResultadoConJugador(MotorJuego.ResultadoDados resultado, Jugador jugador) {
+        JsonObject respuesta = crearRespuestaResultado(resultado);
+        
+        // ✅ Agregar si tiene fichas en juego
+        boolean tieneFichasEnJuego = jugador.getFichas().stream()
+            .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
+        
+        respuesta.addProperty("tieneFichasEnJuego", tieneFichasEnJuego);
         
         return respuesta;
     }

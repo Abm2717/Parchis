@@ -358,12 +358,20 @@ public class VistaCliente {
         // VERIFICACIÓN #4: ¿ES DOBLE NORMAL?
         // ========================================
         if (esDoble) {
-            // ✅ Es doble normal - Usar los dados y luego permitir volver a tirar
-            System.out.println("\n[INFO] Sacaste DOBLE - Usa tus dados y podrás volver a tirar");
+            System.out.println("\n[INFO] Sacaste DOBLE");
             controlador.limpiarDebeVolverATirar();
             
-            // Usar los dados del doble
-            usarDadosIndependientes();
+            // ✅ CORREGIDO: Solo NO preguntar si NO tiene fichas en juego
+            if (!puedeJugarConDados()) {
+                // No tiene fichas para mover
+                System.out.println("[INFO] No tienes fichas en juego para usar estos dados.");
+                System.out.println("\n** ¡DOBLE! Vuelve a tirar dados **");
+                return;
+            }
+            
+            // ✅ SÍ tiene fichas, usar los dados del doble (NO pasar turno)
+            System.out.println("[INFO] Usa tus dados y podrás volver a tirar");
+            usarDadosIndependientes(true); // ✅ true = es doble
             
             // Esperar respuesta del servidor
             try {
@@ -371,7 +379,6 @@ public class VistaCliente {
             } catch (InterruptedException e) { }
             
             // Después de usar los dados, el turno DEBE seguir siendo tuyo
-            // Si no lo es, es un error (no debería pasar)
             if (!controlador.esmiTurno()) {
                 System.out.println("\n[INFO] Tu turno ha terminado.");
                 return;
@@ -385,14 +392,16 @@ public class VistaCliente {
         // ========================================
         // VERIFICACIÓN #5: USO INDEPENDIENTE DE DADOS
         // ========================================
-        usarDadosIndependientes();
+        usarDadosIndependientes(false); // ✅ false = NO es doble
     }
     
     /**
      * ✅ CORREGIDO: Permite usar cada dado de manera independiente
      * Si hay dadoDisponible, solo usa ese. Si no, usa ambos dados normalmente.
+     * 
+     * @param esDoble Si es true, NO pasa turno al final (permite volver a tirar)
      */
-    private void usarDadosIndependientes() {
+    private void usarDadosIndependientes(boolean esDoble) {
         int dadoDisp = controlador.getDadoDisponible();
         
         // ✅ Si hay dado disponible (porque ya se usó el otro para sacar)
@@ -401,13 +410,16 @@ public class VistaCliente {
             System.out.println("  Dado disponible: [" + dadoDisp + "]");
             System.out.println(SEPARADOR_FINO);
             
-            // ✅ CRÍTICO: El dado disponible es el ÚLTIMO, debe pasar turno
-            boolean usado = usarUnDadoConPasarTurno(dadoDisp, "DADO DISPONIBLE", true);
+            // ✅ CRÍTICO: Si es doble, NO pasar turno
+            boolean pasarTurno = !esDoble;
+            boolean usado = usarUnDadoConPasarTurno(dadoDisp, "DADO DISPONIBLE", pasarTurno);
             
             if (!usado) {
-                // Pasa el turno
-                controlador.saltarTurno();
-                controlador.marcarTurnoTerminado();
+                // Pasa el turno solo si NO es doble
+                if (!esDoble) {
+                    controlador.saltarTurno();
+                    controlador.marcarTurnoTerminado();
+                }
             }
             
             controlador.limpiarDadoDisponible();
@@ -425,9 +437,22 @@ public class VistaCliente {
         boolean usado1 = usarUnDadoConPasarTurno(dados[0], "DADO 1", false);
         
         if (!usado1) {
-            // Saltó el turno
-            controlador.saltarTurno();
-            controlador.marcarTurnoTerminado();
+            // Saltó el primer dado
+            // Preguntar por el segundo
+            System.out.println("\n" + SEPARADOR_FINO);
+            System.out.println("  Te queda el dado: [" + dados[1] + "]");
+            System.out.println(SEPARADOR_FINO);
+            
+            boolean pasarTurno = !esDoble;
+            boolean usado2 = usarUnDadoConPasarTurno(dados[1], "DADO 2", pasarTurno);
+            
+            if (!usado2) {
+                // Saltó ambos dados
+                if (!esDoble) {
+                    controlador.saltarTurno();
+                    controlador.marcarTurnoTerminado();
+                }
+            }
             return;
         }
         
@@ -437,22 +462,25 @@ public class VistaCliente {
         } catch (InterruptedException e) { }
         
         // Verificar si el turno terminó después del primer movimiento
-        if (!controlador.esmiTurno()) {
+        if (!controlador.esmiTurno() && !esDoble) {
             System.out.println("\n[INFO] Tu turno ha terminado.");
             return;
         }
         
-        // Usar segundo dado (SÍ pasa turno)
+        // Usar segundo dado (SÍ pasa turno SOLO si NO es doble)
         System.out.println("\n" + SEPARADOR_FINO);
         System.out.println("  Te queda el dado: [" + dados[1] + "]");
         System.out.println(SEPARADOR_FINO);
         
-        boolean usado2 = usarUnDadoConPasarTurno(dados[1], "DADO 2", true);
+        boolean pasarTurno = !esDoble;
+        boolean usado2 = usarUnDadoConPasarTurno(dados[1], "DADO 2", pasarTurno);
         
         if (!usado2) {
-            // Pasa el turno
-            controlador.saltarTurno();
-            controlador.marcarTurnoTerminado();
+            // Pasa el turno solo si NO es doble
+            if (!esDoble) {
+                controlador.saltarTurno();
+                controlador.marcarTurnoTerminado();
+            }
         }
     }
     
@@ -658,6 +686,40 @@ public class VistaCliente {
             System.out.println("\n  [INFO] Aun no hay movimientos en el tablero.");
             System.out.println("  El estado se actualizara despues del primer movimiento.\n");
         }
+    }
+    
+    /**
+     * ✅ CORREGIDO: Verifica si el jugador puede jugar con los dados actuales
+     * PRIORIDAD: Si tiene fichas en juego, SIEMPRE puede intentar mover
+     */
+    private boolean puedeJugarConDados() {
+        int[] dados = controlador.getUltimosDados();
+        int dadoDisp = controlador.getDadoDisponible();
+        
+        // ✅ PRIORIDAD #1: Si tiene fichas en juego, SIEMPRE puede jugar
+        if (controlador.tieneFichasEnJuego()) {
+            return true;
+        }
+        
+        // ✅ Si NO tiene fichas en juego, verificar si puede sacar
+        
+        // Si hay dado disponible (ya sacó con 5)
+        if (dadoDisp > 0) {
+            return true;
+        }
+        
+        // Si algún dado es 5, puede sacar ficha
+        if (dados[0] == 5 || dados[1] == 5) {
+            return true;
+        }
+        
+        // Si la suma es 5, puede sacar ficha
+        if (dados[0] + dados[1] == 5) {
+            return true;
+        }
+        
+        // No tiene fichas y no puede sacar
+        return false;
     }
     
     public void desconectar() {

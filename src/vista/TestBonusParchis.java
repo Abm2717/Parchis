@@ -296,7 +296,7 @@ public class TestBonusParchis {
         System.out.println("===========================================");
         System.out.println("  RESUMEN FINAL");
         System.out.println("===========================================\n");
-        
+            
         System.out.println("Jugador: " + jugador1.getNombre());
         System.out.println("  - Puntos: " + jugador1.getPuntos());
         System.out.println("  - Bonus restantes: " + motor.getBonusDisponible(jugador1.getId()));

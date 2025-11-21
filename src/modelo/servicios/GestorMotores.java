@@ -1,34 +1,49 @@
-
 package modelo.servicios;
 
 import modelo.partida.Partida;
 import modelo.partida.MotorJuego;
+import modelo.partida.EstadoPartida;
+import controlador.servidor.ClienteHandler;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Gestor centralizado de instancias de MotorJuego.
+ * Gestor centralizado de instancias de MotorJuego para arquitectura híbrida.
  * 
  * Responsabilidades:
- * - Crear y almacenar motores de juego por partida
- * - Reutilizar motores existentes (mantiene estado)
+ * - Crear y almacenar motores de juego
+ * - Asociar ClienteHandlers con jugadores para broadcast
+ * - Mantener estado de motores entre llamadas
  * - Limpiar motores de partidas finalizadas
  * 
+ * Patrón: Singleton + Factory
+ * Thread-safe mediante ConcurrentHashMap
  */
 public class GestorMotores {
     
     private static GestorMotores instancia;
     
-    // Mapa de motores: partidaId -> MotorJuego
-    private final Map<Integer, MotorJuego> motoresPorPartida;
+    // Mapa principal: clave de sala -> MotorJuego
+    private final Map<String, MotorJuego> motoresPorSala;
     
-       
+    // Mapa de handlers: jugadorId -> ClienteHandler (para broadcast)
+    private final Map<Integer, ClienteHandler> handlersPorJugador;
+    
+    // Motor principal de la partida actual (simplificado para híbrida)
+    private MotorJuego motorPrincipal;
+    
+    // ============================
+    // CONSTRUCTOR PRIVADO (SINGLETON)
+    // ============================
+    
     private GestorMotores() {
-        this.motoresPorPartida = new ConcurrentHashMap<>();
+        this.motoresPorSala = new ConcurrentHashMap<>();
+        this.handlersPorJugador = new ConcurrentHashMap<>();
+        this.motorPrincipal = null;
     }
     
     /**
-     * Obtiene la instancia unica del gestor (Singleton).
+     * Obtiene la instancia única del gestor (Singleton).
      */
     public static synchronized GestorMotores getInstancia() {
         if (instancia == null) {
@@ -37,167 +52,230 @@ public class GestorMotores {
         return instancia;
     }
     
+    // ============================
+    // GESTIÓN DE MOTORES
+    // ============================
+    
     /**
-     * Obtiene el motor de juego para una partida.
-     * Si no existe, lo crea automaticamente.
+     * Obtiene o crea el motor principal de la partida.
+     * En arquitectura híbrida simplificada, manejamos una sola partida principal.
      * 
-     * @param partida Partida para la cual obtener el motor
-     * @return MotorJuego asociado a la partida
+     * @return MotorJuego principal
      */
-    public MotorJuego obtenerMotor(Partida partida) {
-        if (partida == null) {
-            throw new IllegalArgumentException("La partida no puede ser null");
-        }
-        
-        // Usar computeIfAbsent para crear solo si no existe (thread-safe)
-        return motoresPorPartida.computeIfAbsent(
-            partida.getId(), 
-            id -> {
-                System.out.println("Creando nuevo MotorJuego para partida " + id);
-                return new MotorJuego(partida);
-            }
-        );
+    public MotorJuego getMotorPrincipal() {
+        return motorPrincipal;
     }
     
     /**
-     * Obtiene un motor por ID de partida.
+     * Crea un nuevo motor de juego principal.
      * 
-     * @param partidaId ID de la partida
-     * @return MotorJuego o null si no existe
-     */
-    public MotorJuego obtenerMotorPorId(int partidaId) {
-        return motoresPorPartida.get(partidaId);
-    }
-    
-    /**
-     * Verifica si existe un motor para una partida.
-     * 
-     * @param partidaId ID de la partida
-     * @return true si existe un motor, false en caso contrario
-     */
-    public boolean existeMotor(int partidaId) {
-        return motoresPorPartida.containsKey(partidaId);
-    }
-    
-    /**
-     * Crea o reemplaza un motor para una partida especifica.
-     * util para reiniciar el estado del juego.
-     * 
-     * @param partida Partida para la cual crear el motor
+     * @param salaId Identificador de la sala
      * @return Nuevo MotorJuego creado
      */
-    public MotorJuego crearNuevoMotor(Partida partida) {
-        if (partida == null) {
-            throw new IllegalArgumentException("La partida no puede ser null");
-        }
+    public MotorJuego crearNuevoMotor(String salaId) {
+        // Crear nueva partida
+        Partida nuevaPartida = new Partida(salaId.hashCode(), salaId);
         
-        System.out.println("Creando/reemplazando MotorJuego para partida " + partida.getId());
+        // Crear motor
+        MotorJuego nuevoMotor = new MotorJuego(nuevaPartida);
         
-        MotorJuego nuevoMotor = new MotorJuego(partida);
-        motoresPorPartida.put(partida.getId(), nuevoMotor);
+        // Guardar como motor principal
+        motorPrincipal = nuevoMotor;
+        motoresPorSala.put(salaId, nuevoMotor);
         
+        System.out.println(">>> Nuevo MotorJuego creado para sala: " + salaId);
         return nuevoMotor;
     }
     
-    // ============================
-    // LIMPIEZA
-    // ============================
+    /**
+     * Obtiene un motor por ID de sala.
+     * 
+     * @param salaId ID de la sala
+     * @return MotorJuego o null si no existe
+     */
+    public MotorJuego obtenerMotorPorSala(String salaId) {
+        return motoresPorSala.get(salaId);
+    }
     
     /**
-     * Remueve el motor de una partida.
-     * Debe llamarse cuando una partida termina.
+     * Verifica si existe un motor para una sala.
      * 
-     * @param partidaId ID de la partida
-     * @return true si se removio, false si no existia
+     * @param salaId ID de la sala
+     * @return true si existe, false en caso contrario
      */
-    public boolean removerMotor(int partidaId) {
-        MotorJuego removido = motoresPorPartida.remove(partidaId);
-        
+    public boolean existeMotor(String salaId) {
+        return motoresPorSala.containsKey(salaId);
+    }
+    
+    /**
+     * Remueve un motor de juego.
+     * 
+     * @param salaId ID de la sala
+     * @return true si se removió, false si no existía
+     */
+    public boolean removerMotor(String salaId) {
+        MotorJuego removido = motoresPorSala.remove(salaId);
         if (removido != null) {
-            System.out.println("Motor removido para partida " + partidaId);
+            System.out.println(">>> MotorJuego removido para sala: " + salaId);
+            
+            // Si era el motor principal, limpiarlo
+            if (removido == motorPrincipal) {
+                motorPrincipal = null;
+            }
+            
             return true;
         }
-        
         return false;
     }
     
+    // ============================
+    // GESTIÓN DE HANDLERS (para broadcast)
+    // ============================
+    
     /**
-     * Limpia todos los motores.
-     * util para reiniciar el servidor o en testing.
+     * Registra un ClienteHandler asociado a un jugador.
+     * Esto permite hacer broadcast de mensajes a jugadores específicos.
+     * 
+     * @param jugadorId ID del jugador
+     * @param handler ClienteHandler del jugador
      */
-    public synchronized void limpiarTodos() {
-        int cantidad = motoresPorPartida.size();
-        motoresPorPartida.clear();
-        System.out.println("Limpiados " + cantidad + " motores de juego");
+    public void registrarHandler(int jugadorId, ClienteHandler handler) {
+        handlersPorJugador.put(jugadorId, handler);
+        System.out.println(">>> Handler registrado para jugador: " + jugadorId);
     }
+    
+    /**
+     * Obtiene el ClienteHandler de un jugador.
+     * 
+     * @param jugadorId ID del jugador
+     * @return ClienteHandler o null si no existe
+     */
+    public ClienteHandler getHandler(int jugadorId) {
+        return handlersPorJugador.get(jugadorId);
+    }
+    
+    /**
+     * Remueve el handler de un jugador (cuando se desconecta).
+     * 
+     * @param jugadorId ID del jugador
+     */
+    public void removerHandler(int jugadorId) {
+        ClienteHandler removido = handlersPorJugador.remove(jugadorId);
+        if (removido != null) {
+            System.out.println(">>> Handler removido para jugador: " + jugadorId);
+        }
+    }
+    
+    /**
+     * Obtiene todos los handlers registrados.
+     * Útil para hacer broadcast a todos los jugadores.
+     * 
+     * @return Mapa de jugadorId -> ClienteHandler
+     */
+    public Map<Integer, ClienteHandler> getTodosLosHandlers() {
+        return new ConcurrentHashMap<>(handlersPorJugador);
+    }
+    
+    // ============================
+    // LIMPIEZA Y MANTENIMIENTO
+    // ============================
     
     /**
      * Limpia motores de partidas finalizadas.
-     * Debe ejecutarse periodicamente para liberar memoria.
+     * Se puede ejecutar periódicamente para liberar memoria.
+     * 
+     * @return Cantidad de motores limpiados
      */
-    public void limpiarMotoresFinalizados() {
-        PersistenciaServicio persistencia = PersistenciaServicio.getInstancia();
+    public int limpiarMotoresFinalizados() {
+        int limpiados = 0;
         
-        motoresPorPartida.entrySet().removeIf(entry -> {
-            int partidaId = entry.getKey();
-            Partida partida = persistencia.obtenerPartida(partidaId);
+        for (Map.Entry<String, MotorJuego> entry : motoresPorSala.entrySet()) {
+            MotorJuego motor = entry.getValue();
+            Partida partida = motor.getPartida();
             
-            // Remover si la partida no existe o esta finalizada
-            if (partida == null || 
-                partida.getEstado() == modelo.partida.EstadoPartida.FINALIZADA ||
-                partida.getEstado() == modelo.partida.EstadoPartida.CANCELADA) {
-                
-                System.out.println("Limpiando motor de partida finalizada: " + partidaId);
-                return true;
+            if (partida.getEstado() == EstadoPartida.FINALIZADA) {
+                motoresPorSala.remove(entry.getKey());
+                limpiados++;
+                System.out.println(">>> Motor finalizado limpiado: " + entry.getKey());
             }
-            
-            return false;
-        });
-    }
-    
-  
-    /**
-     * Obtiene el numero de motores activos.
-     */
-    public int getTotalMotores() {
-        return motoresPorPartida.size();
-    }
-    
-    /**
-     * Obtiene informacion de un motor especifico.
-     */
-    public String getInfoMotor(int partidaId) {
-        MotorJuego motor = motoresPorPartida.get(partidaId);
-        if (motor == null) {
-            return "Motor no encontrado para partida " + partidaId;
         }
         
-        // Aqui podrias agregar mas detalles del motor si MotorJuego tiene metodos de info
-        return String.format("Motor[partidaId=%d, existe=true]", partidaId);
+        if (limpiados > 0) {
+            System.out.println(">>> Total de motores limpiados: " + limpiados);
+        }
+        
+        return limpiados;
     }
     
     /**
-     * Lista todos los IDs de partidas con motor activo.
+     * Limpia todos los handlers (útil al cerrar el servidor).
      */
-    public java.util.Set<Integer> getPartidasConMotor() {
-        return new java.util.HashSet<>(motoresPorPartida.keySet());
+    public void limpiarTodosLosHandlers() {
+        int cantidad = handlersPorJugador.size();
+        handlersPorJugador.clear();
+        System.out.println(">>> Todos los handlers limpiados: " + cantidad);
     }
     
- 
     /**
-     * Imprime estadisticas del gestor.
+     * Reinicia completamente el gestor (útil para testing o reinicio del servidor).
      */
-    public void imprimirEstadisticas() {
-        System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║   ESTADISTICAS GESTOR DE MOTORES      ║");
-        System.out.println("╚════════════════════════════════════════╝");
-        System.out.println("Motores activos:     " + motoresPorPartida.size());
-        System.out.println("Partidas con motor:  " + motoresPorPartida.keySet());
-        System.out.println();
+    public void reiniciar() {
+        motoresPorSala.clear();
+        handlersPorJugador.clear();
+        motorPrincipal = null;
+        System.out.println(">>> GestorMotores reiniciado");
     }
     
-    @Override
-    public String toString() {
-        return String.format("GestorMotores[motores=%d]", motoresPorPartida.size());
+    // ============================
+    // INFORMACIÓN Y DEBUG
+    // ============================
+    
+    /**
+     * Obtiene la cantidad de motores activos.
+     * 
+     * @return Número de motores
+     */
+    public int getCantidadMotores() {
+        return motoresPorSala.size();
+    }
+    
+    /**
+     * Obtiene la cantidad de handlers registrados.
+     * 
+     * @return Número de handlers
+     */
+    public int getCantidadHandlers() {
+        return handlersPorJugador.size();
+    }
+    
+    /**
+     * Imprime información de debug del gestor.
+     */
+    public void imprimirEstado() {
+        System.out.println("========================================");
+        System.out.println("ESTADO DE GESTORMOTORES");
+        System.out.println("========================================");
+        System.out.println("Motores activos: " + getCantidadMotores());
+        System.out.println("Handlers registrados: " + getCantidadHandlers());
+        System.out.println("Motor principal: " + (motorPrincipal != null ? "SI" : "NO"));
+        
+        if (!motoresPorSala.isEmpty()) {
+            System.out.println("\nSalas activas:");
+            for (Map.Entry<String, MotorJuego> entry : motoresPorSala.entrySet()) {
+                Partida partida = entry.getValue().getPartida();
+                System.out.println("  - " + entry.getKey() + 
+                    " [" + partida.getEstado() + "] " +
+                    "(" + partida.getJugadores().size() + " jugadores)");
+            }
+        }
+        
+        if (!handlersPorJugador.isEmpty()) {
+            System.out.println("\nJugadores conectados:");
+            for (int jugadorId : handlersPorJugador.keySet()) {
+                System.out.println("  - " + jugadorId);
+            }
+        }
+        
+        System.out.println("========================================");
     }
 }

@@ -1,388 +1,366 @@
 package controlador.juego;
 
 import controlador.servidor.ClienteHandler;
-import modelo.Jugador.Jugador;
+import modelo.partida.MotorJuego;
 import modelo.partida.Partida;
 import modelo.partida.EstadoPartida;
-import modelo.servicios.PersistenciaServicio;
-import modelo.servicios.SalaServicio;
+import modelo.Jugador.Jugador;
+import modelo.Jugador.ColorJugador;
+import modelo.servicios.GestorMotores;
+import modelo.Tablero.Tablero;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import java.util.List;
-import java.util.Optional;
+import java.util.ArrayList;
 
+/**
+ * Controlador para unirse a partidas en arquitectura híbrida P2P + Servidor.
+ * 
+ * Gestiona el registro de jugadores, creación de salas y preparación
+ * de partidas antes de iniciar el juego.
+ */
 public class CtrlUnirse {
     
-    private final PersistenciaServicio persistencia;
-    private final SalaServicio salaServicio;
+    private final GestorMotores gestorMotores;
+    private static int contadorJugadores = 1; // Para generar IDs únicos (estático para compartir entre instancias)
     
     public CtrlUnirse() {
-        this.persistencia = PersistenciaServicio.getInstancia();
-        this.salaServicio = SalaServicio.getInstancia();
+        this.gestorMotores = GestorMotores.getInstancia();
     }
     
-     
-    public String registrarJugador(ClienteHandler cliente, String nombre) {
+    /**
+     * Registra un nuevo jugador y lo agrega a la partida.
+     * 
+     * @param nombreJugador Nombre del jugador
+     * @param handler ClienteHandler del jugador (para comunicación)
+     * @return JsonObject con resultado del registro
+     */
+    public JsonObject registrarJugador(String nombreJugador, ClienteHandler handler) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
-            if (nombre == null || nombre.trim().isEmpty()) {
-                return crearError("El nombre no puede estar vacio");
+            // Validar nombre
+            if (nombreJugador == null || nombreJugador.trim().isEmpty()) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NOMBRE_INVALIDO");
+                respuesta.addProperty("mensaje", "El nombre no puede estar vacío");
+                return respuesta;
             }
             
-            nombre = nombre.trim();
-            if (nombre.length() > 20) {
-                nombre = nombre.substring(0, 20);
+            // Obtener o crear partida
+            MotorJuego motor = gestorMotores.getMotorPrincipal();
+            if (motor == null) {
+                motor = gestorMotores.crearNuevoMotor("partida-principal");
             }
             
-            if (cliente.getJugador() != null) {
-                return crearError("Ya estas registrado como: " + cliente.getJugador().getNombre());
+            Partida partida = motor.getPartida();
+            
+            // Validar que la partida no esté llena (máximo 4 jugadores)
+            if (partida.getJugadores().size() >= 4) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "PARTIDA_LLENA");
+                respuesta.addProperty("mensaje", "La partida ya tiene 4 jugadores");
+                return respuesta;
             }
             
-            Jugador jugador = persistencia.crearJugador(nombre, cliente.getSessionId());
-            cliente.setJugador(jugador);
-            
-            System.out.println("Jugador registrado: " + nombre + " [ID: " + jugador.getId() + "]");
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "registro_exitoso");
-            respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Bienvenido, " + nombre);
-            
-            JsonObject datosJugador = new JsonObject();
-            datosJugador.addProperty("id", jugador.getId());
-            datosJugador.addProperty("nombre", jugador.getNombre());
-            datosJugador.addProperty("sessionId", cliente.getSessionId());
-            
-            respuesta.add("jugador", datosJugador);
-            
-            return respuesta.toString();
-            
-        } catch (Exception e) {
-            System.err.println("Error registrando jugador: " + e.getMessage());
-            return crearError("Error en el registro: " + e.getMessage());
-        }
-    }
-    
-    public String crearSala(ClienteHandler cliente, String nombreSala, int maxJugadores) {
-        try {
-            Jugador jugador = cliente.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
-            }
-            
-            Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (partidaActual.isPresent()) {
-                return crearError("Ya estas en una partida. Sal primero.");
-            }
-            
-            if (maxJugadores < 2 || maxJugadores > 4) {
-                return crearError("El numero de jugadores debe ser entre 2 y 4");
-            }
-            
-            Partida partida = salaServicio.crearSala(nombreSala, maxJugadores);
-            
-            boolean unido = salaServicio.unirJugadorAPartida(jugador.getId(), partida.getId());
-            
-            if (!unido) {
-                return crearError("Error uniendose a la sala creada");
-            }
-            
-            System.out.println("✓ Sala creada: " + nombreSala + " [ID: " + partida.getId() + "]");
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "sala_creada");
-            respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Sala creada exitosamente");
-            
-            JsonObject datosPartida = serializarPartida(partida);
-            respuesta.add("partida", datosPartida);
-            
-            return respuesta.toString();
-            
-        } catch (Exception e) {
-            System.err.println("Error creando sala: " + e.getMessage());
-            return crearError("Error creando sala: " + e.getMessage());
-        }
-    }
-
-    public String unirseAPartida(ClienteHandler cliente, int partidaId) {
-        try {
-            Jugador jugador = cliente.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
-            }
-            
-            Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (partidaActual.isPresent()) {
-                return crearError("Ya estas en una partida");
-            }
-            
-            Partida partida = persistencia.obtenerPartida(partidaId);
-            if (partida == null) {
-                return crearError("La partida no existe");
-            }
-            
-            boolean unido = salaServicio.unirJugadorAPartida(jugador.getId(), partidaId);
-            
-            if (!unido) {
-                return crearError("No se pudo unir a la partida (puede estar llena o iniciada)");
-            }
-            
-            System.out.println("✓ " + jugador.getNombre() + " se unio a partida " + partidaId);
-            
-            notificarNuevoJugador(partida, jugador, cliente);
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "union_exitosa");
-            respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Te has unido a la partida");
-            
-            JsonObject datosPartida = serializarPartida(partida);
-            respuesta.add("partida", datosPartida);
-            
-            return respuesta.toString();
-            
-        } catch (Exception e) {
-            System.err.println("Error uniendose a partida: " + e.getMessage());
-            return crearError("Error: " + e.getMessage());
-        }
-    }
-    
-    public String unirseAPartidaDisponible(ClienteHandler cliente) {
-        try {
-            Jugador jugador = cliente.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
-            }
-            
-            Optional<Partida> partidaActual = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (partidaActual.isPresent()) {
-                return crearError("Ya estas en una partida");
-            }
-            
-            Partida partida = salaServicio.unirJugadorAPartidaDisponible(jugador.getId());
-            
-            if (partida == null) {
-                return crearError("No se pudo unir a ninguna partida");
-            }
-            
-            System.out.println("✓ " + jugador.getNombre() + " se unio a partida " + partida.getId());
-            
-            notificarNuevoJugador(partida, jugador, cliente);
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "union_exitosa");
-            respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Te has unido a una partida");
-            
-            JsonObject datosPartida = serializarPartida(partida);
-            respuesta.add("partida", datosPartida);
-            
-            return respuesta.toString();
-            
-        } catch (Exception e) {
-            System.err.println("Error uniendose a partida: " + e.getMessage());
-            return crearError("Error: " + e.getMessage());
-        }
-    }
-
-    public String listarSalasDisponibles(ClienteHandler cliente) {
-        try {
-            List<Partida> disponibles = salaServicio.obtenerPartidasDisponibles();
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "lista_salas");
-            respuesta.addProperty("exito", true);
-            respuesta.addProperty("total", disponibles.size());
-            
-            JsonArray salas = new JsonArray();
-            for (Partida p : disponibles) {
-                JsonObject sala = new JsonObject();
-                sala.addProperty("id", p.getId());
-                sala.addProperty("nombre", p.getNombre());
-                sala.addProperty("jugadores", p.getJugadores().size());
-                sala.addProperty("maxJugadores", p.getMaxJugadores());
-                sala.addProperty("estado", p.getEstado().toString());
-                salas.add(sala);
-            }
-            
-            respuesta.add("salas", salas);
-            
-            return respuesta.toString();
-            
-        } catch (Exception e) {
-            return crearError("Error listando salas: " + e.getMessage());
-        }
-    }
-
-    
-    public String marcarListo(ClienteHandler clienteHandler) {
-        try {
-            Jugador jugador = clienteHandler.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
-            }
-
-            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) {
-                return crearError("No estas en ninguna partida");
-            }
-
-            Partida partida = partidaOpt.get();
-
-            boolean marcado = salaServicio.marcarJugadorListo(jugador.getId());
-
-            if (!marcado) {
-                return crearError("No se pudo marcar como listo");
-            }
-
-            System.out.println(jugador.getNombre() + " esta listo");
-
-            notificarJugadorListo(partida, jugador, clienteHandler);
-
+            // Validar que la partida no haya iniciado
             if (partida.getEstado() == EstadoPartida.EN_PROGRESO) {
-                notificarInicioPartida(partida, clienteHandler);
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "PARTIDA_EN_CURSO");
+                respuesta.addProperty("mensaje", "La partida ya está en curso");
+                return respuesta;
             }
-
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "listo_confirmado");
+            
+            // Validar que el nombre no esté duplicado
+            for (Jugador j : partida.getJugadores()) {
+                if (j.getNombre().equalsIgnoreCase(nombreJugador)) {
+                    respuesta.addProperty("exito", false);
+                    respuesta.addProperty("error", "NOMBRE_DUPLICADO");
+                    respuesta.addProperty("mensaje", "Ya existe un jugador con ese nombre");
+                    return respuesta;
+                }
+            }
+            
+            // Asignar color automáticamente
+            ColorJugador color = asignarColorDisponible(partida);
+            if (color == null) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_HAY_COLORES");
+                return respuesta;
+            }
+            
+            // Crear y agregar jugador
+            int jugadorId = generarIdJugador();
+            Jugador nuevoJugador = new Jugador(jugadorId, nombreJugador, color, "default");
+            nuevoJugador.inicializarFichas(4); // Inicializar 4 fichas
+            
+            partida.agregarJugador(nuevoJugador);
+            
+            // Asociar handler con jugador en el gestor
+            gestorMotores.registrarHandler(jugadorId, handler);
+            
+            // Construir respuesta
             respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Esperando a otros jugadores...");
-            respuesta.addProperty("partidaIniciada", partida.getEstado() == EstadoPartida.EN_PROGRESO);
-
-            return respuesta.toString();
-
+            respuesta.addProperty("tipo", "JUGADOR_REGISTRADO");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("nombre", nombreJugador);
+            respuesta.addProperty("color", color.name());
+            respuesta.addProperty("mensaje", "Registro exitoso. Esperando otros jugadores...");
+            
+            // Información de la sala
+            respuesta.addProperty("cantidadJugadores", partida.getJugadores().size());
+            respuesta.addProperty("minimoJugadores", 2);
+            respuesta.addProperty("maximoJugadores", 4);
+            
+            // Lista de jugadores actuales
+            JsonArray jugadoresArray = new JsonArray();
+            for (Jugador j : partida.getJugadores()) {
+                JsonObject jugadorObj = new JsonObject();
+                jugadorObj.addProperty("id", j.getId());
+                jugadorObj.addProperty("nombre", j.getNombre());
+                jugadorObj.addProperty("color", j.getColor().name());
+                jugadoresArray.add(jugadorObj);
+            }
+            respuesta.add("jugadores", jugadoresArray);
+            
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
+            
+            // Notificar a otros jugadores que alguien se unió
+            notificarNuevoJugador(motor, nuevoJugador);
+            
+            return respuesta;
+            
         } catch (Exception e) {
-            return crearError("Error: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_REGISTRO");
+            respuesta.addProperty("mensaje", "Error al registrar: " + e.getMessage());
+            e.printStackTrace();
+            return respuesta;
         }
     }
-
     
-    public String salirDePartida(ClienteHandler cliente) {
+    /**
+     * Marca un jugador como listo para iniciar la partida.
+     * 
+     * @param jugadorId ID del jugador
+     * @return JsonObject con resultado
+     */
+    public JsonObject marcarListo(int jugadorId) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
-            Jugador jugador = cliente.getJugador();
+            MotorJuego motor = gestorMotores.getMotorPrincipal();
+            if (motor == null) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_HAY_PARTIDA");
+                return respuesta;
+            }
+            
+            Partida partida = motor.getPartida();
+            Jugador jugador = partida.getJugadorPorId(jugadorId);
+            
             if (jugador == null) {
-                return crearError("Debes registrarte primero");
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "JUGADOR_NO_ENCONTRADO");
+                return respuesta;
             }
             
-            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) {
-                return crearError("No estas en ninguna partida");
-            }
+            // Marcar como listo
+            jugador.setListo(true);
             
-            Partida partida = partidaOpt.get();
-            int partidaId = partida.getId();
-            
-            boolean removido = salaServicio.removerJugadorDePartida(jugador.getId());
-            
-            if (!removido) {
-                return crearError("No se pudo salir de la partida");
-            }
-            
-            System.out.println("✓ " + jugador.getNombre() + " salio de partida " + partidaId);
-            
-            notificarJugadorSalio(partidaId, jugador, cliente);
-            
-            JsonObject respuesta = new JsonObject();
-            respuesta.addProperty("tipo", "salida_exitosa");
             respuesta.addProperty("exito", true);
-            respuesta.addProperty("mensaje", "Has salido de la partida");
+            respuesta.addProperty("tipo", "JUGADOR_LISTO");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("mensaje", jugador.getNombre() + " está listo");
             
-            return respuesta.toString();
+            // Notificar a todos
+            notificarJugadorListo(motor, jugador);
+            
+            // Verificar si todos están listos para iniciar
+            if (todosListosParaIniciar(partida)) {
+                iniciarPartida(motor);
+            }
+            
+            return respuesta;
             
         } catch (Exception e) {
-            return crearError("Error: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_MARCAR_LISTO");
+            return respuesta;
         }
     }
-
-    private void notificarNuevoJugador(Partida partida, Jugador nuevoJugador, ClienteHandler cliente) {
+    
+    /**
+     * Inicia la partida cuando todos los jugadores están listos.
+     */
+    private void iniciarPartida(MotorJuego motor) {
+        try {
+            Partida partida = motor.getPartida();
+            
+            // Validar que haya al menos 2 jugadores
+            if (partida.getJugadores().size() < 2) {
+                return;
+            }
+            
+            // Crear y configurar tablero
+            Tablero tablero = new Tablero();
+            tablero.registrarJugadores(partida.getJugadores());
+            partida.setTablero(tablero);
+            
+            // Cambiar estado a EN_PROGRESO
+            partida.setEstado(EstadoPartida.EN_PROGRESO);
+            
+            // Establecer primer turno
+            partida.setTurnoActual(0);
+            
+            // Notificar a todos que la partida inició
+            notificarInicioPartida(motor);
+            
+        } catch (Exception e) {
+            System.err.println("Error al iniciar partida: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Notifica a todos los jugadores que se unió uno nuevo.
+     */
+    private void notificarNuevoJugador(MotorJuego motor, Jugador nuevoJugador) {
         JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "jugador_unido");
+        notificacion.addProperty("tipo", "NUEVO_JUGADOR");
         notificacion.addProperty("jugadorId", nuevoJugador.getId());
         notificacion.addProperty("nombre", nuevoJugador.getNombre());
-        notificacion.addProperty("totalJugadores", partida.getJugadores().size());
+        notificacion.addProperty("color", nuevoJugador.getColor().name());
+        notificacion.addProperty("cantidadJugadores", motor.getPartida().getJugadores().size());
         
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            cliente.getSessionId()
-        );
+        broadcast(motor, notificacion);
     }
     
-    private void notificarJugadorListo(Partida partida, Jugador jugador, ClienteHandler cliente) {
+    /**
+     * Notifica que un jugador está listo.
+     */
+    private void notificarJugadorListo(MotorJuego motor, Jugador jugador) {
         JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "jugador_listo");
+        notificacion.addProperty("tipo", "JUGADOR_LISTO");
         notificacion.addProperty("jugadorId", jugador.getId());
         notificacion.addProperty("nombre", jugador.getNombre());
         
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            cliente.getSessionId()
-        );
+        broadcast(motor, notificacion);
     }
     
-    private void notificarJugadorSalio(int partidaId, Jugador jugador, ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "jugador_salio");
-        notificacion.addProperty("jugadorId", jugador.getId());
-        notificacion.addProperty("nombre", jugador.getNombre());
+    /**
+     * Notifica a todos que la partida inició.
+     */
+    private void notificarInicioPartida(MotorJuego motor) {
+        Partida partida = motor.getPartida();
         
-        cliente.getServidor().broadcastAPartida(
-            partidaId, 
-            notificacion.toString(), 
-            cliente.getSessionId()
-        );
-    }
-    
-   
-    private void notificarInicioPartida(Partida partida, ClienteHandler clienteHandler) {
         JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "partida_iniciada");
+        notificacion.addProperty("tipo", "PARTIDA_INICIADA");
         notificacion.addProperty("mensaje", "¡La partida ha comenzado!");
-        notificacion.addProperty("turnoInicial", partida.getTurnoActual());
         
-        Jugador jugadorTurno = partida.getJugadorActual();
-        if (jugadorTurno != null) {
-            notificacion.addProperty("turnoJugadorId", jugadorTurno.getId());
-            notificacion.addProperty("turnoJugadorNombre", jugadorTurno.getNombre());
+        // Información del primer turno
+        Jugador primerJugador = partida.getJugadorActual();
+        if (primerJugador != null) {
+            notificacion.addProperty("primerTurno", primerJugador.getId());
+            notificacion.addProperty("primerJugadorNombre", primerJugador.getNombre());
         }
         
-               clienteHandler.getServidor().broadcastAPartida(
-            partida.getId(),
-            notificacion.toString()
-        );
-    }
-    
-    
-    private JsonObject serializarPartida(Partida partida) {
-        JsonObject datos = new JsonObject();
-        datos.addProperty("id", partida.getId());
-        datos.addProperty("nombre", partida.getNombre());
-        datos.addProperty("estado", partida.getEstado().toString());
-        datos.addProperty("maxJugadores", partida.getMaxJugadores());
-        datos.addProperty("turnoActual", partida.getTurnoActual());
-        
-        JsonArray jugadores = new JsonArray();
+        // Lista completa de jugadores
+        JsonArray jugadoresArray = new JsonArray();
         for (Jugador j : partida.getJugadores()) {
             JsonObject jugadorObj = new JsonObject();
             jugadorObj.addProperty("id", j.getId());
             jugadorObj.addProperty("nombre", j.getNombre());
-            jugadorObj.addProperty("color", j.getColor() != null ? j.getColor().toString() : "null");
-            jugadorObj.addProperty("listo", j.isListo());
-            jugadorObj.addProperty("puntos", j.getPuntos());
-            jugadores.add(jugadorObj);
+            jugadorObj.addProperty("color", j.getColor().name());
+            jugadoresArray.add(jugadorObj);
         }
+        notificacion.add("jugadores", jugadoresArray);
         
-        datos.add("jugadores", jugadores);
-        
-        return datos;
+        broadcast(motor, notificacion);
     }
     
-    private String crearError(String mensaje) {
-        JsonObject error = new JsonObject();
-        error.addProperty("tipo", "error");
-        error.addProperty("exito", false);
-        error.addProperty("mensaje", mensaje);
-        return error.toString();
+    /**
+     * Obtiene el estado actual de la sala/partida.
+     */
+    public JsonObject getEstadoSala() {
+        JsonObject respuesta = new JsonObject();
+        
+        try {
+            MotorJuego motor = gestorMotores.getMotorPrincipal();
+            if (motor == null) {
+                respuesta.addProperty("error", "NO_HAY_PARTIDA");
+                return respuesta;
+            }
+            
+            Partida partida = motor.getPartida();
+            respuesta.addProperty("estado", partida.getEstado().name());
+            respuesta.addProperty("cantidadJugadores", partida.getJugadores().size());
+            
+            // Jugadores
+            JsonArray jugadoresArray = new JsonArray();
+            for (Jugador j : partida.getJugadores()) {
+                JsonObject jugadorObj = new JsonObject();
+                jugadorObj.addProperty("id", j.getId());
+                jugadorObj.addProperty("nombre", j.getNombre());
+                jugadorObj.addProperty("color", j.getColor().name());
+                jugadorObj.addProperty("listo", j.isListo());
+                jugadoresArray.add(jugadorObj);
+            }
+            respuesta.add("jugadores", jugadoresArray);
+            
+            return respuesta;
+            
+        } catch (Exception e) {
+            respuesta.addProperty("error", "ERROR_OBTENER_ESTADO");
+            return respuesta;
+        }
+    }
+    
+    /**
+     * Verifica si todos los jugadores están listos para iniciar.
+     */
+    private boolean todosListosParaIniciar(Partida partida) {
+        if (partida.getJugadores().size() < 2) {
+            return false;
+        }
+        return partida.todosJugadoresListos();
+    }
+    
+    /**
+     * Asigna un color disponible automáticamente.
+     */
+    private ColorJugador asignarColorDisponible(Partida partida) {
+        List<ColorJugador> coloresUsados = new ArrayList<>();
+        for (Jugador j : partida.getJugadores()) {
+            coloresUsados.add(j.getColor());
+        }
+        
+        for (ColorJugador color : ColorJugador.values()) {
+            if (!coloresUsados.contains(color)) {
+                return color;
+            }
+        }
+        
+        return null; // No hay colores disponibles
+    }
+    
+    /**
+     * Genera un ID único para el jugador.
+     */
+    private synchronized int generarIdJugador() {
+        return contadorJugadores++;
+    }
+    
+    /**
+     * Envía un mensaje a todos los jugadores conectados.
+     */
+    private void broadcast(MotorJuego motor, JsonObject mensaje) {
+        Partida partida = motor.getPartida();
+        for (Jugador jugador : partida.getJugadores()) {
+            ClienteHandler handler = gestorMotores.getHandler(jugador.getId());
+            if (handler != null) {
+                handler.enviarMensaje(mensaje);
+            }
+        }
     }
 }

@@ -37,7 +37,14 @@ public class MotorJuego {
         this.dado1 = Objects.requireNonNull(dado1, "Dado1 no puede ser null");
         this.dado2 = Objects.requireNonNull(dado2, "Dado2 no puede ser null");
     }
-
+    
+    /**
+    * Obtiene la partida asociada a este motor.
+    * @return La partida actual
+    */
+    public Partida getPartida() {
+        return partida;
+    }
 
     public static class JuegoException extends RuntimeException {
         public JuegoException(String msg) { 

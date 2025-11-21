@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"controlador"},{"l":"controlador.juego"},{"l":"controlador.peer"},{"l":"controlador.servidor"},{"l":"modelo.cache"},{"l":"modelo.Ficha"},{"l":"modelo.Jugador"},{"l":"modelo.partida"},{"l":"modelo.servicios"},{"l":"modelo.Tablero"},{"l":"vista"}];updateSearchResults();

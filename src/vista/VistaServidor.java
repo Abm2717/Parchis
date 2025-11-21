@@ -1,357 +1,266 @@
-// ========================================
-// VISTASERVIDOR.JAVA
-// ========================================
 package vista;
 
-import modelo.Jugador.Jugador;
-import modelo.partida.Partida;
-import modelo.Ficha.Ficha;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import controlador.servidor.ServidorCentral;
+import java.util.Scanner;
 
 /**
- * Vista para el servidor - Muestra informacion en consola del servidor.
+ * VistaServidor - Vista de consola para el servidor.
+ * 
+ * Muestra:
+ * - Estado del servidor
+ * - Clientes conectados
+ * - Comandos administrativos
+ * 
+ * Interfaz simple basada en texto ASCII.
  */
 public class VistaServidor {
     
-    private static final String SEPARADOR_GRUESO = "************************************************";
-    private static final String SEPARADOR_FINO = "------------------------------------------------";
-    private static final String SEPARADOR_DOBLE = "================================================";
+    private final ServidorCentral servidor;
+    private final Scanner scanner;
     
-    private static final DateTimeFormatter formatter = 
-        DateTimeFormatter.ofPattern("HH:mm:ss");
+    public VistaServidor(ServidorCentral servidor) {
+        this.servidor = servidor;
+        this.scanner = new Scanner(System.in);
+    }
     
-
+    // ============================
+    // PANTALLAS PRINCIPALES
+    // ============================
     
     /**
-     * Muestra banner de inicio del servidor.
+     * Muestra el banner de inicio del servidor.
      */
-    public static void mostrarBannerInicio(int puerto) {
-        System.out.println("\n" + SEPARADOR_DOBLE);
+    public void mostrarBanner() {
+        System.out.println();
+        System.out.println("************************************************");
         System.out.println("*                                              *");
-        System.out.println("*        SERVIDOR PARCHIS - INICIADO           *");
+        System.out.println("*      SERVIDOR PARCHIS MULTIJUGADOR          *");
+        System.out.println("*        ARQUITECTURA HIBRIDA P2P             *");
         System.out.println("*                                              *");
-        System.out.println(SEPARADOR_DOBLE);
-        System.out.println("  Puerto: " + puerto);
-        System.out.println("  Hora inicio: " + obtenerHoraActual());
-        System.out.println("  Estado: ESPERANDO CONEXIONES...");
-        System.out.println(SEPARADOR_GRUESO + "\n");
+        System.out.println("************************************************");
+        System.out.println();
     }
     
     /**
-     * Muestra mensaje de cierre del servidor.
+     * Muestra la ayuda de comandos.
      */
-    public static void mostrarCierreServidor() {
-        System.out.println("\n" + SEPARADOR_DOBLE);
-        System.out.println("*        DETENIENDO SERVIDOR...                *");
-        System.out.println(SEPARADOR_DOBLE);
+    public void mostrarAyuda() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   COMANDOS DISPONIBLES");
+        System.out.println("================================================");
+        System.out.println();
+        System.out.println("  stats    - Muestra estadisticas del servidor");
+        System.out.println("  clientes - Lista clientes conectados");
+        System.out.println("  partidas - Lista partidas activas");
+        System.out.println("  stop     - Detiene el servidor");
+        System.out.println("  help     - Muestra esta ayuda");
+        System.out.println();
+        System.out.println("================================================");
     }
-
+    
     /**
-     * Muestra nueva conexión de cliente.
+     * Muestra las estadísticas del servidor.
      */
-    public static void mostrarNuevaConexion(String sessionId, String ip, int totalClientes) {
-        System.out.println("\n[" + obtenerHoraActual() + "] NUEVA CONEXION");
-        System.out.println(SEPARADOR_FINO);
+    public void mostrarEstadisticas() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   ESTADISTICAS DEL SERVIDOR");
+        System.out.println("================================================");
+        
+        servidor.mostrarEstadisticas();
+    }
+    
+    /**
+     * Muestra los clientes conectados.
+     */
+    public void mostrarClientesConectados() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   CLIENTES CONECTADOS");
+        System.out.println("================================================");
+        System.out.println();
+        
+        int cantidad = servidor.getNumeroClientesConectados();
+        if (cantidad == 0) {
+            System.out.println("  No hay clientes conectados");
+        } else {
+            System.out.println("  Total: " + cantidad + " cliente(s)");
+            // Aquí podrías listar detalles si el servidor expone la info
+        }
+        
+        System.out.println();
+        System.out.println("================================================");
+    }
+    
+    /**
+     * Muestra las partidas activas.
+     */
+    public void mostrarPartidasActivas() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   PARTIDAS ACTIVAS");
+        System.out.println("================================================");
+        System.out.println();
+        
+        // Aquí podrías listar partidas si el GestorMotores expone la info
+        System.out.println("  Consulta implementacion en GestorMotores");
+        
+        System.out.println();
+        System.out.println("================================================");
+    }
+    
+    // ============================
+    // NOTIFICACIONES
+    // ============================
+    
+    /**
+     * Notifica que el servidor se está iniciando.
+     */
+    public void notificarInicio(int puerto) {
+        System.out.println();
+        System.out.println(">>> Iniciando servidor en puerto " + puerto + "...");
+        System.out.println(">>> Esperando conexiones...");
+        System.out.println();
+        System.out.println("Escribe 'help' para ver comandos disponibles");
+        System.out.println();
+    }
+    
+    /**
+     * Notifica que un cliente se conectó.
+     */
+    public void notificarNuevaConexion(String ip, String sessionId) {
+        System.out.println("[" + obtenerTimestamp() + "] Nueva conexion desde: " + ip);
         System.out.println("  Session ID: " + sessionId);
-        System.out.println("  IP: " + ip);
-        System.out.println("  Clientes conectados: " + totalClientes);
-        System.out.println(SEPARADOR_FINO);
     }
     
     /**
-     * Muestra desconexion de cliente.
+     * Notifica que un cliente se desconectó.
      */
-    public static void mostrarDesconexion(String sessionId, String nombreJugador, int totalClientes) {
-        System.out.println("\n[" + obtenerHoraActual() + "] DESCONEXION");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Session ID: " + sessionId);
-        if (nombreJugador != null) {
-            System.out.println("  Jugador: " + nombreJugador);
-        }
-        System.out.println("  Clientes restantes: " + totalClientes);
-        System.out.println(SEPARADOR_FINO);
-    }
-    
-    
-    /**
-     * Muestra registro de nuevo jugador.
-     */
-    public static void mostrarRegistroJugador(Jugador jugador) {
-        System.out.println("\n[" + obtenerHoraActual() + "] NUEVO JUGADOR REGISTRADO");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  ID: " + jugador.getId());
-        System.out.println("  Nombre: " + jugador.getNombre());
-        System.out.println("  Session: " + jugador.getSessionId());
-        System.out.println(SEPARADOR_FINO);
+    public void notificarDesconexion(String sessionId) {
+        System.out.println("[" + obtenerTimestamp() + "] Cliente desconectado: " + sessionId);
     }
     
     /**
-     * Muestra creacion de nueva sala.
+     * Notifica que un jugador se registró.
      */
-    public static void mostrarCreacionSala(Partida partida, Jugador creador) {
-        System.out.println("\n[" + obtenerHoraActual() + "] SALA CREADA");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  ID Partida: " + partida.getId());
-        System.out.println("  Nombre: " + partida.getNombre());
-        System.out.println("  Max Jugadores: " + partida.getMaxJugadores());
-        System.out.println("  Creador: " + creador.getNombre());
-        System.out.println(SEPARADOR_FINO);
+    public void notificarRegistroJugador(String nombre, String sessionId) {
+        System.out.println("[" + obtenerTimestamp() + "] Jugador registrado: " + nombre);
+        System.out.println("  Session: " + sessionId);
     }
     
     /**
-     * Muestra cuando un jugador se une a una sala.
+     * Notifica que una partida inició.
      */
-    public static void mostrarUnionSala(Jugador jugador, Partida partida) {
-        System.out.println("\n[" + obtenerHoraActual() + "] JUGADOR SE UNIO A SALA");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Jugador: " + jugador.getNombre() + " (ID: " + jugador.getId() + ")");
-        System.out.println("  Sala: " + partida.getNombre() + " (ID: " + partida.getId() + ")");
-        System.out.println("  Jugadores en sala: " + partida.getJugadores().size() + "/" + partida.getMaxJugadores());
-        System.out.println("  Color asignado: " + jugador.getColor());
-        System.out.println(SEPARADOR_FINO);
+    public void notificarInicioPartida(int partidaId, int numeroJugadores) {
+        System.out.println();
+        System.out.println("************************************************");
+        System.out.println("  PARTIDA " + partidaId + " INICIADA");
+        System.out.println("  Jugadores: " + numeroJugadores);
+        System.out.println("************************************************");
+        System.out.println();
     }
     
     /**
-     * Muestra inicio de partida con todos los jugadores.
+     * Notifica que una partida finalizó.
      */
-    public static void mostrarInicioPartida(Partida partida) {
-        System.out.println("\n" + SEPARADOR_DOBLE);
-        System.out.println("[" + obtenerHoraActual() + "] PARTIDA INICIADA");
-        System.out.println(SEPARADOR_DOBLE);
-        System.out.println("  Partida ID: " + partida.getId());
-        System.out.println("  Nombre: " + partida.getNombre());
-        System.out.println("  Estado: " + partida.getEstado());
-        System.out.println("");
-        System.out.println("  JUGADORES:");
-        System.out.println("  " + SEPARADOR_FINO);
-        
-        for (Jugador j : partida.getJugadores()) {
-            System.out.println("    [" + j.getColor() + "] " + j.getNombre() + " (ID: " + j.getId() + ")");
-        }
-        
-        System.out.println("  " + SEPARADOR_FINO);
-        
-        Jugador primerJugador = partida.getJugadorActual();
-        if (primerJugador != null) {
-            System.out.println("  Primer turno: " + primerJugador.getNombre());
-        }
-        
-        System.out.println(SEPARADOR_DOBLE + "\n");
-    }
-    
-    
-    /**
-     * Muestra tirada de dados.
-     */
-    public static void mostrarTiradaDados(Jugador jugador, int dado1, int dado2, boolean esDoble) {
-        System.out.println("\n[" + obtenerHoraActual() + "] TIRADA DE DADOS");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Dados: [" + dado1 + "] [" + dado2 + "] = " + (dado1 + dado2));
-        
-        if (esDoble) {
-            System.out.println("  ** DOBLE ** - Puede volver a tirar");
-        }
-        
-        System.out.println(SEPARADOR_FINO);
+    public void notificarFinPartida(int partidaId) {
+        System.out.println();
+        System.out.println("[" + obtenerTimestamp() + "] Partida " + partidaId + " finalizada");
     }
     
     /**
-     * Muestra movimiento de ficha.
+     * Muestra un mensaje de error.
      */
-    public static void mostrarMovimientoFicha(Jugador jugador, int fichaId, int desde, int hasta) {
-        System.out.println("\n[" + obtenerHoraActual() + "] MOVIMIENTO DE FICHA");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Ficha: #" + fichaId);
-        System.out.println("  Movimiento: Casilla " + desde + " --> Casilla " + hasta);
-        System.out.println("  Distancia: " + (hasta - desde) + " casillas");
-        System.out.println(SEPARADOR_FINO);
+    public void mostrarError(String mensaje) {
+        System.err.println("[ERROR] " + mensaje);
     }
     
     /**
-     * Muestra captura de ficha.
+     * Muestra un mensaje informativo.
      */
-    public static void mostrarCaptura(Jugador capturador, Jugador capturado, int fichaId, int bonusGanado) {
-        System.out.println("\n[" + obtenerHoraActual() + "] ** CAPTURA DE FICHA **");
-        System.out.println(SEPARADOR_GRUESO);
-        System.out.println("  " + capturador.getNombre() + " capturo ficha de " + capturado.getNombre());
-        System.out.println("  Ficha capturada: #" + fichaId);
-        System.out.println("  Bonus ganado: +" + bonusGanado + " casillas");
-        System.out.println("  Ficha capturada vuelve a CASA");
-        System.out.println(SEPARADOR_GRUESO);
+    public void mostrarMensaje(String mensaje) {
+        System.out.println("[INFO] " + mensaje);
+    }
+    
+    // ============================
+    // INTERACCIÓN
+    // ============================
+    
+    /**
+     * Lee un comando del administrador.
+     */
+    public String leerComando() {
+        System.out.print("> ");
+        return scanner.nextLine().trim().toLowerCase();
     }
     
     /**
-     * Muestra llegada a meta.
+     * Solicita confirmación para detener el servidor.
      */
-    public static void mostrarLlegadaMeta(Jugador jugador, int fichaId, int fichasEnMeta) {
-        System.out.println("\n[" + obtenerHoraActual() + "] ** FICHA EN META **");
-        System.out.println(SEPARADOR_GRUESO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Ficha: #" + fichaId + " llego a la META");
-        System.out.println("  Fichas en meta: " + fichasEnMeta + "/4");
-        System.out.println("  Puntos ganados: +10");
-        System.out.println(SEPARADOR_GRUESO);
+    public boolean confirmarDetener() {
+        System.out.println();
+        System.out.print("¿Estas seguro de detener el servidor? (s/n): ");
+        String respuesta = scanner.nextLine().trim().toLowerCase();
+        return respuesta.equals("s") || respuesta.equals("si");
     }
     
     /**
-     * Muestra uso de bonus.
+     * Muestra mensaje de cierre.
      */
-    public static void mostrarUsoBonus(Jugador jugador, int fichaId, int bonusUsado, int bonusRestante) {
-        System.out.println("\n[" + obtenerHoraActual() + "] USO DE BONUS");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Ficha: #" + fichaId);
-        System.out.println("  Bonus usado: " + bonusUsado + " casillas");
-        System.out.println("  Bonus restante: " + bonusRestante + " casillas");
-        System.out.println(SEPARADOR_FINO);
+    public void mostrarMensajeCierre() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   CERRANDO SERVIDOR...");
+        System.out.println("================================================");
+        System.out.println();
+        System.out.println("  Desconectando clientes...");
     }
     
     /**
-     * Muestra bloqueo roto.
+     * Muestra mensaje de servidor cerrado.
      */
-    public static void mostrarBloqueoRoto(Jugador jugador) {
-        System.out.println("\n[" + obtenerHoraActual() + "] BLOQUEO ROTO");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Accion: Rompio su propio bloqueo");
-        System.out.println("  Razon: Saco DOBLE");
-        System.out.println(SEPARADOR_FINO);
+    public void mostrarServidorCerrado() {
+        System.out.println();
+        System.out.println("================================================");
+        System.out.println("   SERVIDOR CERRADO");
+        System.out.println("================================================");
+        System.out.println();
+        System.out.println("  Todos los recursos liberados");
+        System.out.println("  Hasta pronto!");
+        System.out.println();
+    }
+    
+    // ============================
+    // UTILIDADES
+    // ============================
+    
+    /**
+     * Obtiene un timestamp formateado.
+     */
+    private String obtenerTimestamp() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss");
+        return sdf.format(new java.util.Date());
     }
     
     /**
-     * Muestra perdida de ficha por 3 dobles.
+     * Cierra el scanner.
      */
-    public static void mostrarFichaPerdida(Jugador jugador) {
-        System.out.println("\n[" + obtenerHoraActual() + "] ** PENALIZACION **");
-        System.out.println(SEPARADOR_GRUESO);
-        System.out.println("  Jugador: " + jugador.getNombre());
-        System.out.println("  Penalizacion: FICHA PERDIDA");
-        System.out.println("  Razon: 3 DOBLES CONSECUTIVOS");
-        System.out.println("  Una ficha vuelve a CASA");
-        System.out.println(SEPARADOR_GRUESO);
-    }
-    
-    
-    /**
-     * Muestra cambio de turno.
-     */
-    public static void mostrarCambioTurno(Jugador jugadorAnterior, Jugador jugadorActual) {
-        System.out.println("\n[" + obtenerHoraActual() + "] CAMBIO DE TURNO");
-        System.out.println(SEPARADOR_FINO);
-        if (jugadorAnterior != null) {
-            System.out.println("  Turno anterior: " + jugadorAnterior.getNombre());
-        }
-        System.out.println("  Turno actual: " + jugadorActual.getNombre() + " [" + jugadorActual.getColor() + "]");
-        System.out.println(SEPARADOR_FINO);
+    public void cerrar() {
+        scanner.close();
     }
     
     /**
-     * Muestra ganador de la partida.
+     * Muestra una línea separadora.
      */
-    public static void mostrarGanador(Partida partida, Jugador ganador) {
-        System.out.println("\n" + SEPARADOR_DOBLE);
-        System.out.println("*                                              *");
-        System.out.println("*           ** PARTIDA FINALIZADA **           *");
-        System.out.println("*                                              *");
-        System.out.println(SEPARADOR_DOBLE);
-        System.out.println("");
-        System.out.println("  GANADOR: " + ganador.getNombre());
-        System.out.println("  Color: " + ganador.getColor());
-        System.out.println("  Puntos: " + ganador.getPuntos());
-        System.out.println("  Fichas en meta: " + ganador.contarFichasEnMeta() + "/4");
-        System.out.println("");
-        System.out.println("  CLASIFICACION FINAL:");
-        System.out.println("  " + SEPARADOR_FINO);
-        
-        // Ordenar jugadores por fichas en meta y puntos
-        java.util.List<Jugador> ranking = new java.util.ArrayList<>(partida.getJugadores());
-        ranking.sort((j1, j2) -> {
-            int compareFichas = Integer.compare(j2.contarFichasEnMeta(), j1.contarFichasEnMeta());
-            if (compareFichas != 0) return compareFichas;
-            return Integer.compare(j2.getPuntos(), j1.getPuntos());
-        });
-        
-        int posicion = 1;
-        for (Jugador j : ranking) {
-            System.out.println("    " + posicion + ". " + j.getNombre() + 
-                             " - Fichas: " + j.contarFichasEnMeta() + "/4" +
-                             " - Puntos: " + j.getPuntos());
-            posicion++;
-        }
-        
-        System.out.println("  " + SEPARADOR_FINO);
-        System.out.println("");
-        System.out.println("  Partida ID: " + partida.getId());
-        System.out.println("  Hora fin: " + obtenerHoraActual());
-        System.out.println(SEPARADOR_DOBLE + "\n");
-    }
-    
-    
-    /**
-     * Muestra estadisticas del servidor.
-     */
-    public static void mostrarEstadisticas(int clientes, int partidas, int jugadores) {
-        System.out.println("\n" + SEPARADOR_DOBLE);
-        System.out.println("*        ESTADISTICAS DEL SERVIDOR             *");
-        System.out.println(SEPARADOR_DOBLE);
-        System.out.println("  Clientes conectados:  " + clientes);
-        System.out.println("  Partidas activas:     " + partidas);
-        System.out.println("  Jugadores registrados: " + jugadores);
-        System.out.println("  Hora: " + obtenerHoraActual());
-        System.out.println(SEPARADOR_DOBLE + "\n");
+    public void mostrarSeparador() {
+        System.out.println("------------------------------------------------");
     }
     
     /**
-     * Muestra estado de una partida.
+     * Imprime una línea en blanco.
      */
-    public static void mostrarEstadoPartida(Partida partida) {
-        System.out.println("\n[" + obtenerHoraActual() + "] ESTADO DE PARTIDA");
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  Partida ID: " + partida.getId());
-        System.out.println("  Nombre: " + partida.getNombre());
-        System.out.println("  Estado: " + partida.getEstado());
-        System.out.println("  Turno actual: " + partida.getTurnoActual());
-        System.out.println("");
-        System.out.println("  Jugadores (" + partida.getJugadores().size() + "/" + partida.getMaxJugadores() + "):");
-        
-        for (Jugador j : partida.getJugadores()) {
-            String turno = partida.esTurnoDeJugador(j.getId()) ? " <-- TURNO" : "";
-            System.out.println("    - " + j.getNombre() + " [" + j.getColor() + "]" +
-                             " | Meta: " + j.contarFichasEnMeta() + "/4" +
-                             " | Pts: " + j.getPuntos() + turno);
-        }
-        
-        System.out.println(SEPARADOR_FINO);
-    }
-    
-
-    public static void mostrarError(String contexto, String mensaje) {
-        System.err.println("\n[" + obtenerHoraActual() + "] ** ERROR **");
-        System.err.println(SEPARADOR_FINO);
-        System.err.println("  Contexto: " + contexto);
-        System.err.println("  Mensaje: " + mensaje);
-        System.err.println(SEPARADOR_FINO);
-    }
-    
-    /**
-     * Obtiene la hora actual formateada.
-     */
-    private static String obtenerHoraActual() {
-        return LocalDateTime.now().format(formatter);
-    }
-    
-       public static void mostrarMensaje(String titulo, String mensaje) {
-        System.out.println("\n[" + obtenerHoraActual() + "] " + titulo);
-        System.out.println(SEPARADOR_FINO);
-        System.out.println("  " + mensaje);
-        System.out.println(SEPARADOR_FINO);
-    }
-    
-      
-    public static void log(String mensaje) {
-        System.out.println("[" + obtenerHoraActual() + "] " + mensaje);
+    public void nuevaLinea() {
+        System.out.println();
     }
 }

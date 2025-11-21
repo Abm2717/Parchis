@@ -1,10 +1,6 @@
-// ========================================
-// SERVIDORCENTRAL.JAVA (SIN MAIN)
-// ========================================
 package controlador.servidor;
 
-import modelo.servicios.PersistenciaServicio;
-import modelo.servicios.SalaServicio;
+import modelo.servicios.GestorMotores;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -14,49 +10,31 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import modelo.servicios.GestorMotores;
-import vista.VistaServidor;
 
 /**
- * Servidor central del juego de Parchis.
+ * Servidor central del juego de Parchís - Arquitectura Híbrida.
  * 
- * Responsabilidades:
- * Aceptar conexiones de clientes
- * Crear y gestionar ClienteHandlers
- * Coordinar broadcast de mensajes
- * Gestionar desconexiones
+ * En la arquitectura híbrida:
+ * - El servidor mantiene el estado oficial del juego
+ * - Valida todas las acciones de los jugadores
+ * - Los peers se comunican entre sí para notificaciones rápidas
+ * - El servidor hace broadcast del estado validado
  * 
+ * Thread-safe y soporta múltiples clientes concurrentes.
  */
 public class ServidorCentral {
     
-    // Configuracion del servidor
     private static final int PUERTO_DEFAULT = 5000;
     private static final int MAX_CLIENTES = 50;
     
-    // Componentes del servidor
     private ServerSocket serverSocket;
     private final int puerto;
     private boolean ejecutando;
-    
-    // Pool de threads para manejar clientes
-    private ExecutorService poolClientes;
-    
-    // Lista de clientes conectados
+    private final ExecutorService poolClientes;
     private final Map<String, ClienteHandler> clientesConectados;
-    
-    // Servicios
-    private final PersistenciaServicio persistencia;
-    private final SalaServicio salaServicio;
-    
-    // Contador para IDs de sesion
+    private final GestorMotores gestorMotores;
     private int contadorSesiones;
     
-    // Limpieza automatica
-    private ScheduledExecutorService schedulerLimpieza;
-    
-
     public ServidorCentral() {
         this(PUERTO_DEFAULT);
     }
@@ -64,19 +42,11 @@ public class ServidorCentral {
     public ServidorCentral(int puerto) {
         this.puerto = puerto;
         this.ejecutando = false;
-        this.clientesConectados = new ConcurrentHashMap<>();
-        this.persistencia = PersistenciaServicio.getInstancia();
-        this.salaServicio = SalaServicio.getInstancia();
-        this.contadorSesiones = 0;
         this.poolClientes = Executors.newFixedThreadPool(MAX_CLIENTES);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                if (ejecutando) {
-                    detenerInterno();
-                }
-            }));
+        this.clientesConectados = new ConcurrentHashMap<>();
+        this.gestorMotores = GestorMotores.getInstancia();
+        this.contadorSesiones = 0;
     }
-    
-    
     
     /**
      * Inicia el servidor y comienza a aceptar conexiones.
@@ -86,9 +56,14 @@ public class ServidorCentral {
             serverSocket = new ServerSocket(puerto);
             ejecutando = true;
             
-            VistaServidor.mostrarBannerInicio(puerto);
+            System.out.println("================================================");
+            System.out.println("   SERVIDOR PARCHIS - ARQUITECTURA HIBRIDA");
+            System.out.println("================================================");
+            System.out.println("Puerto: " + puerto);
+            System.out.println("Modo: P2P + Servidor de Estado");
+            System.out.println("Esperando conexiones...");
+            System.out.println("================================================\n");
             
-            // Loop principal - aceptar clientes
             while (ejecutando) {
                 try {
                     Socket socketCliente = serverSocket.accept();
@@ -101,53 +76,36 @@ public class ServidorCentral {
             }
             
         } catch (IOException e) {
-            System.err.println("Error iniciando servidor en puerto " + puerto);
-            System.err.println(e.getMessage());
+            System.err.println("Error iniciando servidor: " + e.getMessage());
+            e.printStackTrace();
         } finally {
             detenerInterno();
         }
     }
     
     /**
-     * Detiene el servidor y cierra todas las conexiones.
+     * Maneja una nueva conexión de cliente.
      */
-    public void detener() {
-        ejecutando = false;
+    private void manejarNuevaConexion(Socket socketCliente) {
+        String sessionId = generarSessionId();
+        String ipCliente = socketCliente.getInetAddress().getHostAddress();
         
-        try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
-        } catch (IOException e) {
-            // Ignorar
-        }
+        System.out.println(">>> Nueva conexion desde " + ipCliente + " [Session: " + sessionId + "]");
+        
+        ClienteHandler handler = new ClienteHandler(socketCliente, sessionId, this);
+        clientesConectados.put(sessionId, handler);
+        poolClientes.execute(handler);
+        
+        System.out.println(">>> Clientes conectados: " + clientesConectados.size());
     }
     
     /**
-     * Detencion interna con limpieza completa.
+     * Detiene el servidor.
      */
-    private void detenerInterno() {
-        VistaServidor.mostrarCierreServidor();
-        
+    public void detener() {
+        System.out.println("\n>>> Deteniendo servidor...");
         ejecutando = false;
         
-        // Cerrar todas las conexiones de clientes
-        for (ClienteHandler cliente : clientesConectados.values()) {
-            cliente.desconectar();
-        }
-        clientesConectados.clear();
-        
-        // Cerrar el pool de threads
-        if (poolClientes != null) {
-            poolClientes.shutdown();
-        }
-        
-        // Cerrar scheduler de limpieza
-        if (schedulerLimpieza != null) {
-            schedulerLimpieza.shutdown();
-        }
-        
-        // Cerrar el servidor socket
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
@@ -156,190 +114,220 @@ public class ServidorCentral {
             System.err.println("Error cerrando servidor: " + e.getMessage());
         }
         
-        System.out.println("Servidor detenido.");
-    }
-
-    /**
-     * Maneja una nueva conexion de cliente.
-     */
-    private void manejarNuevaConexion(Socket socketCliente) {
-        try {
-            // Generar session ID unico
-            String sessionId = generarSessionId();
-            
-            // Crear el handler para este cliente
-            ClienteHandler cliente = new ClienteHandler(socketCliente, sessionId, this);
-            
-            // Registrar el cliente
-            clientesConectados.put(sessionId, cliente);
-            
-            // Ejecutar el handler en el pool de threads
-            poolClientes.execute(cliente);
-            
-            VistaServidor.mostrarNuevaConexion(
-                sessionId, 
-                socketCliente.getInetAddress().getHostAddress(),
-                clientesConectados.size()
-            );
-            
-        } catch (Exception e) {
-            System.err.println("Error manejando nueva conexion: " + e.getMessage());
-        }
+        detenerInterno();
     }
     
     /**
-     * Remueve un cliente desconectado.
+     * Detiene recursos internos.
+     */
+    private void detenerInterno() {
+        // Cerrar todas las conexiones
+        for (ClienteHandler handler : clientesConectados.values()) {
+            handler.desconectar();
+        }
+        clientesConectados.clear();
+        
+        // Detener pool de threads
+        poolClientes.shutdown();
+        
+        // Limpiar gestor de motores
+        gestorMotores.limpiarTodosLosHandlers();
+        
+        System.out.println(">>> Servidor detenido");
+    }
+    
+    /**
+     * Remueve un cliente del servidor.
      */
     public void removerCliente(String sessionId) {
-        ClienteHandler cliente = clientesConectados.remove(sessionId);
-        
-        if (cliente != null) {
-            // Actualizar estado del jugador en persistencia
-            modelo.Jugador.Jugador jugador = persistencia.obtenerJugadorPorSession(sessionId);
-            if (jugador != null) {
-                persistencia.actualizarConexion(jugador.getId(), false);
-                
-                // Notificar a otros jugadores en la misma partida
-                java.util.Optional<modelo.partida.Partida> partidaOpt = 
-                    persistencia.obtenerPartidaDeJugador(jugador.getId());
-                
-                if (partidaOpt.isPresent()) {
-                    String mensaje = crearMensajeDesconexion(jugador);
-                    broadcastAPartida(partidaOpt.get().getId(), mensaje, sessionId);
-                }
-                
-                VistaServidor.mostrarDesconexion(
-                    sessionId, 
-                    jugador.getNombre(), 
-                    clientesConectados.size()
-                );
+        ClienteHandler handler = clientesConectados.remove(sessionId);
+        if (handler != null) {
+            System.out.println(">>> Cliente removido: " + sessionId);
+            System.out.println(">>> Clientes conectados: " + clientesConectados.size());
+            
+            // Remover handler del gestor de motores
+            if (handler.getJugador() != null) {
+                gestorMotores.removerHandler(handler.getJugador().getId());
             }
         }
     }
     
     /**
-     * Obtiene un cliente por su session ID.
+     * Obtiene un cliente por session ID.
      */
     public ClienteHandler getCliente(String sessionId) {
         return clientesConectados.get(sessionId);
     }
     
     /**
-     * Obtiene todos los clientes conectados.
+     * Obtiene lista de todos los clientes conectados.
      */
     public List<ClienteHandler> getClientesConectados() {
         return new ArrayList<>(clientesConectados.values());
     }
-
+    
+    // ============================
+    // BROADCAST DE MENSAJES
+    // ============================
+    
     /**
-     * Envia un mensaje a todos los clientes conectados.
+     * Envía un mensaje a todos los clientes conectados.
      */
     public void broadcastATodos(String mensaje) {
-        for (ClienteHandler cliente : clientesConectados.values()) {
-            cliente.enviarMensaje(mensaje);
+        for (ClienteHandler handler : clientesConectados.values()) {
+            if (handler.isConectado()) {
+                handler.enviarMensaje(mensaje);
+            }
         }
     }
     
     /**
-     * Envia un mensaje a todos los clientes excepto uno.
+     * Envía un mensaje a todos excepto uno.
      */
     public void broadcastExcepto(String mensaje, String sessionIdExcluido) {
         for (Map.Entry<String, ClienteHandler> entry : clientesConectados.entrySet()) {
-            if (!entry.getKey().equals(sessionIdExcluido)) {
+            if (!entry.getKey().equals(sessionIdExcluido) && entry.getValue().isConectado()) {
                 entry.getValue().enviarMensaje(mensaje);
             }
         }
     }
     
     /**
-     * Envia un mensaje a todos los jugadores de una partida.
+     * Envía un mensaje a todos los jugadores de una partida.
+     */
+    public void broadcastAPartida(int partidaId, String mensaje) {
+        broadcastAPartida(partidaId, mensaje, null);
+    }
+    
+    /**
+     * Envía un mensaje a todos los jugadores de una partida excepto uno.
      */
     public void broadcastAPartida(int partidaId, String mensaje, String sessionIdExcluido) {
-        modelo.partida.Partida partida = persistencia.obtenerPartida(partidaId);
-        if (partida == null) return;
-        
-        for (modelo.Jugador.Jugador jugador : partida.getJugadores()) {
-            String sessionId = jugador.getSessionId();
-            if (sessionId != null && !sessionId.equals(sessionIdExcluido)) {
-                ClienteHandler cliente = clientesConectados.get(sessionId);
-                if (cliente != null) {
-                    cliente.enviarMensaje(mensaje);
+        for (ClienteHandler handler : clientesConectados.values()) {
+            if (handler.isConectado() && 
+                handler.getJugador() != null) {
+                
+                // Verificar si el jugador está en la partida
+                boolean estaEnPartida = false; // Aquí deberías verificar con el MotorJuego
+                
+                if (estaEnPartida && 
+                    (sessionIdExcluido == null || !handler.getSessionId().equals(sessionIdExcluido))) {
+                    handler.enviarMensaje(mensaje);
                 }
             }
         }
     }
     
+    // ============================
+    // UTILIDADES
+    // ============================
+    
     /**
-     * Envia un mensaje a todos los jugadores de una partida (sin excluir ninguno).
-     */
-    public void broadcastAPartida(int partidaId, String mensaje) {
-        broadcastAPartida(partidaId, mensaje, null);
-    }
-
-    /**
-     * Genera un session ID unico.
+     * Genera un ID de sesión único.
      */
     private synchronized String generarSessionId() {
-        contadorSesiones++;
-        return "SESSION_" + System.currentTimeMillis() + "_" + contadorSesiones;
+        return "session_" + (++contadorSesiones) + "_" + System.currentTimeMillis();
     }
     
     /**
-     * Crea un mensaje JSON de desconexion.
-     */
-    private String crearMensajeDesconexion(modelo.Jugador.Jugador jugador) {
-        return String.format(
-            "{\"tipo\":\"jugador_desconectado\",\"jugadorId\":%d,\"nombre\":\"%s\"}",
-            jugador.getId(),
-            jugador.getNombre()
-        );
-    }
-    
-    /**
-     * Verifica si el servidor esta ejecutando.
+     * Verifica si el servidor está ejecutando.
      */
     public boolean estaEjecutando() {
         return ejecutando;
     }
     
     /**
-     * Obtiene el numero de clientes conectados.
+     * Obtiene el número de clientes conectados.
      */
     public int getNumeroClientesConectados() {
         return clientesConectados.size();
     }
     
     /**
-     * Obtiene informacion del servidor.
+     * Obtiene el estado del servidor.
      */
     public String getEstado() {
-        return String.format(
-            "Servidor[puerto=%d, clientes=%d, partidas=%d, ejecutando=%s]",
-            puerto,
-            clientesConectados.size(),
-            persistencia.getTotalPartidas(),
-            ejecutando
-        );
+        return String.format("Servidor[puerto=%d, ejecutando=%s, clientes=%d]",
+            puerto, ejecutando, clientesConectados.size());
     }
     
     /**
-     * Muestra estadisticas del servidor.
+     * Muestra estadísticas del servidor.
      */
     public void mostrarEstadisticas() {
-        VistaServidor.mostrarEstadisticas(
-            clientesConectados.size(),
-            persistencia.getTotalPartidas(),
-            persistencia.getTotalJugadores()
-        );
+        System.out.println("\n================================================");
+        System.out.println("   ESTADISTICAS DEL SERVIDOR");
+        System.out.println("================================================");
+        System.out.println("Puerto: " + puerto);
+        System.out.println("Estado: " + (ejecutando ? "EJECUTANDO" : "DETENIDO"));
+        System.out.println("Clientes conectados: " + clientesConectados.size());
+        System.out.println("Motores activos: " + gestorMotores.getCantidadMotores());
+        System.out.println("Handlers registrados: " + gestorMotores.getCantidadHandlers());
+        
+        if (!clientesConectados.isEmpty()) {
+            System.out.println("\nClientes:");
+            for (Map.Entry<String, ClienteHandler> entry : clientesConectados.entrySet()) {
+                ClienteHandler handler = entry.getValue();
+                String jugadorInfo = handler.getJugador() != null ? 
+                    handler.getJugador().getNombre() : "No registrado";
+                System.out.println("  - " + entry.getKey() + " -> " + jugadorInfo);
+            }
+        }
+        
+        System.out.println("================================================\n");
     }
     
-    /**
-     * Inicia limpieza automatica de motores (opcional).
-     */
-    private void iniciarLimpiezaAutomatica() {
-        schedulerLimpieza = Executors.newScheduledThreadPool(1);
-        schedulerLimpieza.scheduleAtFixedRate(() -> {
-            GestorMotores.getInstancia().limpiarMotoresFinalizados();
-        }, 10, 10, TimeUnit.MINUTES);
+    // ============================
+    // MAIN
+    // ============================
+    
+    public static void main(String[] args) {
+        int puerto = PUERTO_DEFAULT;
+        
+        // Permitir especificar puerto por argumento
+        if (args.length > 0) {
+            try {
+                puerto = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.err.println("Puerto invalido, usando default: " + PUERTO_DEFAULT);
+            }
+        }
+        
+        ServidorCentral servidor = new ServidorCentral(puerto);
+        
+        // Thread para comandos del servidor
+        Thread hiloComandos = new Thread(() -> {
+            java.util.Scanner scanner = new java.util.Scanner(System.in);
+            while (servidor.estaEjecutando()) {
+                String comando = scanner.nextLine().trim().toLowerCase();
+                
+                switch (comando) {
+                    case "stats":
+                        servidor.mostrarEstadisticas();
+                        break;
+                    case "stop":
+                        System.out.println("Deteniendo servidor...");
+                        servidor.detener();
+                        System.exit(0);
+                        break;
+                    case "help":
+                        System.out.println("\nComandos disponibles:");
+                        System.out.println("  stats - Muestra estadisticas");
+                        System.out.println("  stop  - Detiene el servidor");
+                        System.out.println("  help  - Muestra esta ayuda\n");
+                        break;
+                    default:
+                        if (!comando.isEmpty()) {
+                            System.out.println("Comando desconocido. Escribe 'help' para ver comandos.");
+                        }
+                }
+            }
+            scanner.close();
+        });
+        hiloComandos.setDaemon(true);
+        hiloComandos.start();
+        
+        // Iniciar servidor (bloquea hasta que se detenga)
+        servidor.iniciar();
     }
 }

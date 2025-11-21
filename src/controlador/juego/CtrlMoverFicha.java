@@ -1,526 +1,328 @@
 package controlador.juego;
 
-import controlador.servidor.ClienteHandler;
-import modelo.Jugador.Jugador;
+import modelo.partida.MotorJuego;
+import modelo.partida.MotorJuego.ResultadoMovimiento;
+import modelo.partida.MotorJuego.ResultadoSacar;
 import modelo.partida.Partida;
 import modelo.partida.EstadoPartida;
-import modelo.partida.MotorJuego;
-import modelo.servicios.PersistenciaServicio;
+import modelo.Jugador.Jugador;
+import modelo.Ficha.Ficha;
 import com.google.gson.JsonObject;
-import java.util.Optional;
-import modelo.servicios.GestorMotores;
-import vista.VistaServidor;
+import com.google.gson.JsonArray;
 
 /**
- * ✅ MEJORADO: Soporte para mover fichas con un solo dado
- * - moverConUnDado(): Mueve una ficha con el valor de UN solo dado
- * - ejecutar(): Mantiene compatibilidad con movimientos usando ambos dados
+ * Controlador para mover fichas en arquitectura híbrida P2P + Servidor.
+ * 
+ * El servidor valida y ejecuta el movimiento oficial, maneja bonus
+ * (20 por captura, 10 por meta) y hace broadcast a todos los peers.
  */
 public class CtrlMoverFicha {
     
-    private final PersistenciaServicio persistencia;
+    private final MotorJuego motor;
     
-    public CtrlMoverFicha() {
-        this.persistencia = PersistenciaServicio.getInstancia();
+    public CtrlMoverFicha(MotorJuego motor) {
+        this.motor = motor;
     }
- 
+    
     /**
-     * ✅ NUEVO: Mueve una ficha con UN SOLO dado
-     * Se usa cuando el jugador debe elegir qué hacer con cada dado por separado
+     * Procesa el movimiento de una ficha con ambos dados (suma).
      * 
-     * @param cliente ClienteHandler del jugador
-     * @param fichaId ID de la ficha a mover
-     * @param valorDado Valor de UN solo dado (no la suma)
-     * @param pasarTurno Si true, pasa el turno después del movimiento
-     * @return Respuesta JSON
+     * @param jugadorId ID del jugador
+     * @param fichaId ID de la ficha (1-4)
+     * @param dado1 Valor del primer dado
+     * @param dado2 Valor del segundo dado
+     * @return JsonObject con resultado para broadcast
      */
-    public String moverConUnDado(ClienteHandler cliente, int fichaId, int valorDado, boolean pasarTurno) {
+    public JsonObject moverFicha(int jugadorId, int fichaId, int dado1, int dado2) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
-            // Validar jugador
-            Jugador jugador = cliente.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
+            // Validar que sea el turno del jugador
+            if (!esElTurnoDelJugador(jugadorId)) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_ES_TU_TURNO");
+                respuesta.addProperty("mensaje", "No es tu turno");
+                return respuesta;
             }
             
-            // Obtener partida
-            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) {
-                return crearError("No estas en ninguna partida");
-            }
-            
-            Partida partida = partidaOpt.get();
-            
-            // Validar estado
+            // Validar partida
+            Partida partida = motor.getPartida();
             if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearError("La partida no esta en progreso");
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "PARTIDA_NO_INICIADA");
+                return respuesta;
             }
             
-            // Validar turno
-            if (!partida.esTurnoDeJugador(jugador.getId())) {
-                return crearError("No es tu turno");
+            // Obtener la ficha antes del movimiento
+            Jugador jugador = partida.getJugadorPorId(jugadorId);
+            if (jugador == null) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "JUGADOR_NO_ENCONTRADO");
+                return respuesta;
             }
             
-            // Obtener motor
-            MotorJuego motor = obtenerMotorJuego(partida);
+            Ficha ficha = jugador.getFichaPorId(fichaId);
+            if (ficha == null) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "FICHA_NO_ENCONTRADA");
+                return respuesta;
+            }
             
-            // ✅ Mover con UN solo dado
-            MotorJuego.ResultadoMovimiento resultado = motor.moverFichaConUnDado(
-                jugador.getId(), 
-                fichaId, 
-                valorDado
-            );
+            int posicionOriginal = ficha.getCasillaActual() != null ? 
+                ficha.getCasillaActual().getIndice() : -1;
             
-            VistaServidor.mostrarMovimientoFicha(
-                jugador, 
-                fichaId, 
-                resultado.casillaSalida, 
-                resultado.casillaLlegada
-            );
-
-            // Si hubo captura
+            // Ejecutar movimiento (el motor maneja lógica completa)
+            ResultadoMovimiento resultado = motor.moverFicha(jugadorId, fichaId, dado1, dado2);
+            
+            if (!resultado.movimientoExitoso) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "MOVIMIENTO_INVALIDO");
+                respuesta.addProperty("mensaje", "No se pudo realizar el movimiento");
+                return respuesta;
+            }
+            
+            // Construir respuesta exitosa
+            respuesta.addProperty("exito", true);
+            respuesta.addProperty("tipo", "FICHA_MOVIDA");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("fichaId", fichaId);
+            respuesta.addProperty("dado1", dado1);
+            respuesta.addProperty("dado2", dado2);
+            respuesta.addProperty("posicionOrigen", posicionOriginal);
+            respuesta.addProperty("posicionDestino", resultado.casillaLlegada);
+            
+            // Información de captura
             if (resultado.capturaRealizada) {
-                Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
-                VistaServidor.mostrarCaptura(
-                    jugador, 
-                    capturado, 
-                    resultado.fichaCapturadaId, 
-                    resultado.bonusGanado
-                );
+                respuesta.addProperty("huboCaptura", true);
+                respuesta.addProperty("fichaCapturadaId", resultado.fichaCapturadaId);
+                respuesta.addProperty("jugadorCapturadoId", resultado.jugadorCapturadoId);
+                respuesta.addProperty("bonusCaptura", resultado.bonusGanado);
+                respuesta.addProperty("bonusTotal", resultado.bonusTotal);
+                respuesta.addProperty("mensaje", "¡Captura! +" + resultado.bonusGanado + " casillas de bonus");
             }
-
-            // Si llego a meta
+            
+            // Información de llegada a meta
             if (resultado.llegadaMeta) {
-                VistaServidor.mostrarLlegadaMeta(
-                    jugador, 
-                    fichaId, 
-                    jugador.contarFichasEnMeta()
-                );
-
-                // Si gano
-                if (jugador.haGanado()) {
-                    VistaServidor.mostrarGanador(partida, jugador);
-                }
+                respuesta.addProperty("llegoAMeta", true);
+                respuesta.addProperty("bonusMeta", resultado.bonusPuntosMeta);
+                respuesta.addProperty("puntosTotal", resultado.puntosTotal);
+                respuesta.addProperty("mensaje", "¡Ficha en meta! +" + resultado.bonusPuntosMeta + " puntos");
             }
             
-            // Notificar movimiento
-            notificarMovimiento(partida, jugador, fichaId, resultado, cliente);
+            // El turno termina después de mover
+            partida.avanzarTurno();
+            Jugador siguienteJugador = partida.getJugadorActual();
+            respuesta.addProperty("turnoTerminado", true);
+            respuesta.addProperty("siguienteTurno", siguienteJugador.getId());
             
-            // Si hubo captura, notificar
-            if (resultado.capturaRealizada) {
-                notificarCaptura(partida, jugador, resultado, cliente);
-            }
+            // Timestamp para sincronización
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
             
-            // Si llego a meta, notificar
-            if (resultado.llegadaMeta) {
-                notificarLlegadaMeta(partida, jugador, fichaId, cliente);
-                
-                // Verificar si gano
-                if (jugador.haGanado()) {
-                    notificarGanador(partida, jugador, cliente);
-                    partida.setEstado(EstadoPartida.FINALIZADA);
-                }
-            }
-            
-            // ✅ Pasar turno solo si se indica
-            if (pasarTurno) {
-                partida.avanzarTurno();
-                
-                // Notificar estado del tablero a todos
-                notificarEstadoTablero(partida, cliente);
-                
-                // Notificar al siguiente jugador
-                Jugador siguienteJugador = partida.getJugadorActual();
-                if (siguienteJugador != null) {
-                    notificarCambioTurno(partida, siguienteJugador, cliente);
-                }
-            } else {
-                // Solo actualizar tablero sin pasar turno
-                notificarEstadoTablero(partida, cliente);
-            }
-            
-            // Crear respuesta
-            JsonObject respuesta = crearRespuestaMovimiento(resultado);
-            respuesta.addProperty("turnoTerminado", pasarTurno);
-            
-            return respuesta.toString();
+            return respuesta;
             
         } catch (MotorJuego.MovimientoInvalidoException e) {
-            return crearError("Movimiento invalido: " + e.getMessage());
-        } catch (MotorJuego.NoEsTuTurnoException e) {
-            return crearError("No es tu turno");
-        } catch (MotorJuego.JuegoException e) {
-            return crearError("Error en el juego: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "MOVIMIENTO_INVALIDO");
+            respuesta.addProperty("mensaje", e.getMessage());
+            return respuesta;
         } catch (Exception e) {
-            System.err.println("Error moviendo ficha: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_SERVIDOR");
+            respuesta.addProperty("mensaje", "Error al mover ficha: " + e.getMessage());
             e.printStackTrace();
-            return crearError("Error interno: " + e.getMessage());
+            return respuesta;
         }
     }
     
     /**
-     * ✅ MANTENER: Método original para compatibilidad
-     * Ejecuta un movimiento usando ambos dados
+     * Saca una ficha de casa con la regla del 5.
+     * 
+     * @param jugadorId ID del jugador
+     * @param fichaId ID de la ficha a sacar
+     * @param dado1 Valor del primer dado
+     * @param dado2 Valor del segundo dado
+     * @return JsonObject con resultado para broadcast
      */
-    public String ejecutar(ClienteHandler cliente, int fichaId, int dado1, int dado2) {
+    public JsonObject sacarFicha(int jugadorId, int fichaId, int dado1, int dado2) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
-            // Validar jugador
-            Jugador jugador = cliente.getJugador();
-            if (jugador == null) {
-                return crearError("Debes registrarte primero");
+            if (!esElTurnoDelJugador(jugadorId)) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_ES_TU_TURNO");
+                return respuesta;
             }
             
-            // Obtener partida
-            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) {
-                return crearError("No estas en ninguna partida");
+            // Ejecutar sacar ficha
+            ResultadoSacar resultado = motor.sacarFichaDeCasa(jugadorId, fichaId, dado1, dado2);
+            
+            if (!resultado.movimientoExitoso) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_SE_PUDO_SACAR");
+                return respuesta;
             }
             
-            Partida partida = partidaOpt.get();
+            // Construir respuesta
+            respuesta.addProperty("exito", true);
+            respuesta.addProperty("tipo", "FICHA_SACADA");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("fichaId", fichaId);
+            respuesta.addProperty("casillaLlegada", resultado.casillaLlegada);
+            respuesta.addProperty("mensaje", resultado.mensajeExtra);
             
-            // Validar estado
-            if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearError("La partida no esta en progreso");
+            // Información de dados usados
+            respuesta.addProperty("dado1Usado", resultado.dado1Usado);
+            respuesta.addProperty("dado2Usado", resultado.dado2Usado);
+            
+            if (resultado.hayDadoDisponible()) {
+                respuesta.addProperty("dadoDisponible", resultado.getDadoDisponible());
+                respuesta.addProperty("mensaje", resultado.mensajeExtra);
             }
             
-            // Validar turno
-            if (!partida.esTurnoDeJugador(jugador.getId())) {
-                return crearError("No es tu turno");
-            }
-            
-            // Obtener motor
-            MotorJuego motor = obtenerMotorJuego(partida);
-            
-            // Ejecutar movimiento con ambos dados
-            MotorJuego.ResultadoMovimiento resultado = motor.moverFicha(
-                jugador.getId(), 
-                fichaId, 
-                dado1,
-                dado2
-            );
-            
-            VistaServidor.mostrarMovimientoFicha(
-                jugador, 
-                fichaId, 
-                resultado.casillaSalida, 
-                resultado.casillaLlegada
-            );
-
-            // Si hubo captura
+            // Captura al sacar
             if (resultado.capturaRealizada) {
-                Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
-                VistaServidor.mostrarCaptura(
-                    jugador, 
-                    capturado, 
-                    resultado.fichaCapturadaId, 
-                    resultado.bonusGanado
-                );
-            }
-
-            // Si llego a meta
-            if (resultado.llegadaMeta) {
-                VistaServidor.mostrarLlegadaMeta(
-                    jugador, 
-                    fichaId, 
-                    jugador.contarFichasEnMeta()
-                );
-
-                // Si gano
-                if (jugador.haGanado()) {
-                    VistaServidor.mostrarGanador(partida, jugador);
-                }
+                respuesta.addProperty("huboCaptura", true);
+                respuesta.addProperty("bonusCaptura", resultado.bonusGanado);
             }
             
-            // Notificar movimiento
-            notificarMovimiento(partida, jugador, fichaId, resultado, cliente);
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
             
-            // Si hubo captura, notificar
-            if (resultado.capturaRealizada) {
-                notificarCaptura(partida, jugador, resultado, cliente);
+            return respuesta;
+            
+        } catch (Exception e) {
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_SACAR_FICHA");
+            respuesta.addProperty("mensaje", e.getMessage());
+            return respuesta;
+        }
+    }
+    
+    /**
+     * Aplicar bonus a una ficha específica.
+     * 
+     * @param jugadorId ID del jugador
+     * @param fichaId ID de la ficha que recibirá el bonus
+     * @param pasos Cantidad de pasos a aplicar
+     * @return JsonObject con resultado para broadcast
+     */
+    public JsonObject aplicarBonus(int jugadorId, int fichaId, int pasos) {
+        JsonObject respuesta = new JsonObject();
+        
+        try {
+            if (!esElTurnoDelJugador(jugadorId)) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_ES_TU_TURNO");
+                return respuesta;
             }
             
-            // Si llego a meta, notificar
-            if (resultado.llegadaMeta) {
-                notificarLlegadaMeta(partida, jugador, fichaId, cliente);
-                
-                // Verificar si gano
-                if (jugador.haGanado()) {
-                    notificarGanador(partida, jugador, cliente);
-                    partida.setEstado(EstadoPartida.FINALIZADA);
-                }
+            // Ejecutar aplicación de bonus
+            ResultadoMovimiento resultado = motor.usarBonus(jugadorId, fichaId, pasos);
+            
+            if (!resultado.movimientoExitoso) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_SE_PUDO_APLICAR_BONUS");
+                return respuesta;
             }
             
-            // Avanzar turno
+            // Construir respuesta
+            respuesta.addProperty("exito", true);
+            respuesta.addProperty("tipo", "BONUS_APLICADO");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("fichaId", fichaId);
+            respuesta.addProperty("pasos", pasos);
+            respuesta.addProperty("posicionFinal", resultado.casillaLlegada);
+            respuesta.addProperty("bonusRestante", resultado.bonusRestante);
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
+            
+            return respuesta;
+            
+        } catch (Exception e) {
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_APLICAR_BONUS");
+            respuesta.addProperty("mensaje", e.getMessage());
+            return respuesta;
+        }
+    }
+    
+    /**
+     * Saltar turno (no mover ninguna ficha).
+     */
+    public JsonObject saltarTurno(int jugadorId) {
+        JsonObject respuesta = new JsonObject();
+        
+        try {
+            if (!esElTurnoDelJugador(jugadorId)) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_ES_TU_TURNO");
+                return respuesta;
+            }
+            
+            // Pasar al siguiente turno
+            Partida partida = motor.getPartida();
             partida.avanzarTurno();
             
-            // Notificar estado del tablero a todos
-            notificarEstadoTablero(partida, cliente);
-            
-            // Notificar al siguiente jugador
             Jugador siguienteJugador = partida.getJugadorActual();
-            if (siguienteJugador != null) {
-                notificarCambioTurno(partida, siguienteJugador, cliente);
-            }
             
-            // Crear respuesta
-            JsonObject respuesta = crearRespuestaMovimiento(resultado);
+            respuesta.addProperty("exito", true);
+            respuesta.addProperty("tipo", "TURNO_SALTADO");
+            respuesta.addProperty("jugadorId", jugadorId);
+            respuesta.addProperty("siguienteTurno", siguienteJugador.getId());
+            respuesta.addProperty("mensaje", "Turno saltado");
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
             
-            return respuesta.toString();
+            return respuesta;
             
-        } catch (MotorJuego.MovimientoInvalidoException e) {
-            return crearError("Movimiento invalido: " + e.getMessage());
-        } catch (MotorJuego.NoEsTuTurnoException e) {
-            return crearError("No es tu turno");
-        } catch (MotorJuego.JuegoException e) {
-            return crearError("Error en el juego: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("Error moviendo ficha: " + e.getMessage());
-            e.printStackTrace();
-            return crearError("Error interno: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_SALTAR_TURNO");
+            return respuesta;
         }
     }
-    
     
     /**
-     * Usa movimientos bonus acumulados.
+     * Obtiene las fichas movibles del jugador actual.
      */
-    public String usarBonus(ClienteHandler cliente, int fichaId, int pasos) {
+    public JsonObject getFichasMovibles(int jugadorId) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
-            Jugador jugador = cliente.getJugador();
+            Partida partida = motor.getPartida();
+            Jugador jugador = partida.getJugadorPorId(jugadorId);
             if (jugador == null) {
-                return crearError("Debes registrarte primero");
+                respuesta.addProperty("error", "JUGADOR_NO_ENCONTRADO");
+                return respuesta;
             }
             
-            Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
-            if (!partidaOpt.isPresent()) {
-                return crearError("No estas en ninguna partida");
+            JsonArray fichasArray = new JsonArray();
+            for (Ficha ficha : jugador.getFichas()) {
+                JsonObject fichaObj = new JsonObject();
+                fichaObj.addProperty("id", ficha.getId());
+                int posicion = ficha.getCasillaActual() != null ? 
+                    ficha.getCasillaActual().getIndice() : -1;
+                fichaObj.addProperty("posicion", posicion);
+                fichaObj.addProperty("estado", ficha.getEstado().toString());
+                fichasArray.add(fichaObj);
             }
             
-            Partida partida = partidaOpt.get();
-            
-            if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearError("La partida no esta en progreso");
-            }
-            
-            MotorJuego motor = obtenerMotorJuego(partida);
-            
-            int bonusDisponible = motor.getBonusDisponible(jugador.getId());
-            if (bonusDisponible <= 0) {
-                return crearError("No tienes movimientos bonus disponibles");
-            }
-            
-            if (pasos > bonusDisponible) {
-                return crearError("Solo tienes " + bonusDisponible + " movimientos bonus");
-            }
-            
-            MotorJuego.ResultadoMovimiento resultado = motor.usarBonus(
-                jugador.getId(), 
-                fichaId, 
-                pasos
-            );
-            
-            VistaServidor.mostrarUsoBonus(
-                jugador, 
-                fichaId, 
-                resultado.bonusConsumido, 
-                resultado.bonusRestante
-            );
-            
-            notificarUsoBonus(partida, jugador, fichaId, pasos, resultado, cliente);
-            notificarEstadoTablero(partida, cliente);
-            
-            JsonObject respuesta = crearRespuestaMovimiento(resultado);
-            respuesta.addProperty("bonusUsado", resultado.bonusConsumido);
-            respuesta.addProperty("bonusRestante", resultado.bonusRestante);
-            
-            return respuesta.toString();
+            respuesta.add("fichas", fichasArray);
+            return respuesta;
             
         } catch (Exception e) {
-            System.err.println("Error usando bonus: " + e.getMessage());
-            return crearError("Error: " + e.getMessage());
+            respuesta.addProperty("error", "ERROR_OBTENER_FICHAS");
+            return respuesta;
         }
     }
-
     
-    private JsonObject crearRespuestaMovimiento(MotorJuego.ResultadoMovimiento resultado) {
-        JsonObject respuesta = new JsonObject();
-        respuesta.addProperty("tipo", "movimiento_exitoso");
-        respuesta.addProperty("exito", true);
-        
-        JsonObject movimiento = new JsonObject();
-        movimiento.addProperty("desde", resultado.casillaSalida);
-        movimiento.addProperty("hasta", resultado.casillaLlegada);
-        
-        respuesta.add("movimiento", movimiento);
-        
-        if (resultado.capturaRealizada) {
-            respuesta.addProperty("captura", true);
-            respuesta.addProperty("fichaCapturadaId", resultado.fichaCapturadaId);
-            respuesta.addProperty("bonusGanado", resultado.bonusGanado);
-            respuesta.addProperty("bonusTotal", resultado.bonusTotal);
+    /**
+     * Valida que sea el turno del jugador especificado.
+     */
+    private boolean esElTurnoDelJugador(int jugadorId) {
+        Partida partida = motor.getPartida();
+        if (partida == null) {
+            return false;
         }
         
-        if (resultado.llegadaMeta) {
-            respuesta.addProperty("meta", true);
-            respuesta.addProperty("puntosMeta", resultado.bonusPuntosMeta);
-            respuesta.addProperty("puntosTotal", resultado.puntosTotal);
-        }
-        
-        String mensaje = "Ficha movida exitosamente";
-        if (resultado.capturaRealizada) {
-            mensaje = "¡Capturaste una ficha! +" + resultado.bonusGanado + " bonus";
-        }
-        if (resultado.llegadaMeta) {
-            mensaje = "¡Llegaste a la meta! +" + resultado.bonusPuntosMeta + " puntos";
-        }
-        respuesta.addProperty("mensaje", mensaje);
-        
-        return respuesta;
-    }
-    
-    private void notificarMovimiento(Partida partida, Jugador jugador, int fichaId, 
-                                     MotorJuego.ResultadoMovimiento resultado, 
-                                     ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "ficha_movida");
-        notificacion.addProperty("jugadorId", jugador.getId());
-        notificacion.addProperty("jugadorNombre", jugador.getNombre());
-        notificacion.addProperty("fichaId", fichaId);
-        notificacion.addProperty("desde", resultado.casillaSalida);
-        notificacion.addProperty("hasta", resultado.casillaLlegada);
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            cliente.getSessionId()
-        );
-    }
-    
-    private void notificarCaptura(Partida partida, Jugador jugador, 
-                                  MotorJuego.ResultadoMovimiento resultado, 
-                                  ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "ficha_capturada");
-        notificacion.addProperty("capturadorId", jugador.getId());
-        notificacion.addProperty("capturadorNombre", jugador.getNombre());
-        notificacion.addProperty("fichaCapturadaId", resultado.fichaCapturadaId);
-        notificacion.addProperty("jugadorCapturadoId", resultado.jugadorCapturadoId);
-        notificacion.addProperty("bonusGanado", resultado.bonusGanado);
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            null
-        );
-    }
-    
-    private void notificarLlegadaMeta(Partida partida, Jugador jugador, int fichaId, 
-                                      ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "ficha_en_meta");
-        notificacion.addProperty("jugadorId", jugador.getId());
-        notificacion.addProperty("jugadorNombre", jugador.getNombre());
-        notificacion.addProperty("fichaId", fichaId);
-        notificacion.addProperty("fichasEnMeta", jugador.contarFichasEnMeta());
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            null
-        );
-    }
-    
-    private void notificarGanador(Partida partida, Jugador ganador, ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "partida_ganada");
-        notificacion.addProperty("ganadorId", ganador.getId());
-        notificacion.addProperty("ganadorNombre", ganador.getNombre());
-        notificacion.addProperty("mensaje", "¡" + ganador.getNombre() + " ha ganado la partida!");
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            null
-        );
-    }
-    
-    private void notificarUsoBonus(Partida partida, Jugador jugador, int fichaId, int pasos,
-                                   MotorJuego.ResultadoMovimiento resultado, 
-                                   ClienteHandler cliente) {
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "bonus_usado");
-        notificacion.addProperty("jugadorId", jugador.getId());
-        notificacion.addProperty("jugadorNombre", jugador.getNombre());
-        notificacion.addProperty("fichaId", fichaId);
-        notificacion.addProperty("pasosBonus", pasos);
-        notificacion.addProperty("bonusRestante", resultado.bonusRestante);
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(), 
-            notificacion.toString(), 
-            cliente.getSessionId()
-        );
-    }
-    
-    private void notificarCambioTurno(Partida partida, Jugador jugadorTurno, ClienteHandler cliente) {
-        // Notificar a todos PRIMERO
-        JsonObject cambioTurno = new JsonObject();
-        cambioTurno.addProperty("tipo", "cambio_turno");
-        cambioTurno.addProperty("jugadorId", jugadorTurno.getId());
-        cambioTurno.addProperty("jugadorNombre", jugadorTurno.getNombre());
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(),
-            cambioTurno.toString(),
-            jugadorTurno.getSessionId()
-        );
-        
-        try {
-            Thread.sleep(200);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
-        // Notificar al jugador específico
-        JsonObject tuTurno = new JsonObject();
-        tuTurno.addProperty("tipo", "tu_turno");
-        tuTurno.addProperty("jugadorId", jugadorTurno.getId());
-        tuTurno.addProperty("jugadorNombre", jugadorTurno.getNombre());
-        
-        ClienteHandler handlerTurno = cliente.getServidor().getCliente(jugadorTurno.getSessionId());
-        if (handlerTurno != null) {
-            handlerTurno.enviarMensaje(tuTurno.toString());
-            System.out.println("[TURNO] Notificado a " + jugadorTurno.getNombre() + " que es su turno");
-        }
-    }
-
-    private void notificarEstadoTablero(Partida partida, ClienteHandler cliente) {
-        if (partida.getTablero() == null) {
-            return;
-        }
-        
-        JsonObject estadoTablero = partida.getTablero().generarEstadoJSON();
-        
-        JsonObject notificacion = new JsonObject();
-        notificacion.addProperty("tipo", "estado_tablero");
-        notificacion.add("tablero", estadoTablero);
-        
-        cliente.getServidor().broadcastAPartida(
-            partida.getId(),
-            notificacion.toString(),
-            null
-        );
-    }
-    
-    private MotorJuego obtenerMotorJuego(Partida partida) {
-        GestorMotores gestorMotores = GestorMotores.getInstancia();
-        return gestorMotores.obtenerMotor(partida);
-    }
-    
-    private String crearError(String mensaje) {
-        JsonObject error = new JsonObject();
-        error.addProperty("tipo", "error");
-        error.addProperty("exito", false);
-        error.addProperty("mensaje", mensaje);
-        return error.toString();
+        Jugador jugadorActual = partida.getJugadorActual();
+        return jugadorActual != null && jugadorActual.getId() == jugadorId;
     }
 }

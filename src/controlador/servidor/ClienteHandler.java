@@ -1,6 +1,5 @@
 package controlador.servidor;
 
-import controlador.Dispatcher;
 import modelo.Jugador.Jugador;
 import com.google.gson.JsonObject;
 import java.io.*;

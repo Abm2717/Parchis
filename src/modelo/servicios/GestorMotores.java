@@ -98,6 +98,34 @@ public class GestorMotores {
     }
     
     /**
+     * ✅ NUEVO: Obtiene el motor donde está jugando un jugador específico.
+     * 
+     * @param jugadorId ID del jugador
+     * @return MotorJuego o null si no está en ninguna partida
+     */
+    public MotorJuego obtenerMotorDeJugador(int jugadorId) {
+        // Primero revisar el motor principal
+        if (motorPrincipal != null) {
+            Partida partida = motorPrincipal.getPartida();
+            if (partida.getJugadorPorId(jugadorId) != null) {
+                return motorPrincipal;
+            }
+        }
+        
+        // Luego revisar otros motores
+        for (MotorJuego motor : motoresPorSala.values()) {
+            if (motor == motorPrincipal) continue; // Ya lo revisamos
+            
+            Partida partida = motor.getPartida();
+            if (partida.getJugadorPorId(jugadorId) != null) {
+                return motor;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Verifica si existe un motor para una sala.
      * 
      * @param salaId ID de la sala

@@ -1,6 +1,5 @@
-package controlador;
+package controlador.servidor;
 
-import controlador.servidor.ClienteHandler;
 import controlador.juego.CtrlUnirse;
 import controlador.juego.CtrlTirarDado;
 import controlador.juego.CtrlMoverFicha;

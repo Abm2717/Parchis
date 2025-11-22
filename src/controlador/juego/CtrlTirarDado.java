@@ -1,185 +1,148 @@
 package controlador.juego;
 
-import modelo.Jugador.Jugador;
+import modelo.partida.MotorJuego;
+import modelo.partida.MotorJuego.ResultadoDados;
 import modelo.partida.Partida;
 import modelo.partida.EstadoPartida;
-import modelo.partida.MotorJuego;
-import modelo.servicios.GestorMotores;
+import modelo.Jugador.Jugador;
 import com.google.gson.JsonObject;
-import modelo.Ficha.Ficha;
+import com.google.gson.JsonArray;
 
 /**
- * ✅ COMPATIBLE CON TU DISPATCHER
- * Constructor recibe MotorJuego
+ * Controlador para tirar dados en arquitectura híbrida P2P + Servidor.
+ * 
+ * El servidor valida y ejecuta la tirada oficial, luego hace broadcast
+ * a todos los peers para sincronización.
  */
 public class CtrlTirarDado {
     
     private final MotorJuego motor;
-    private final GestorMotores gestorMotores;
     
     public CtrlTirarDado(MotorJuego motor) {
         this.motor = motor;
-        this.gestorMotores = GestorMotores.getInstancia();
     }
     
     /**
-     * ✅ Firma compatible con Dispatcher: tirarDados(int jugadorId)
+     * Procesa la tirada de dados de un jugador.
+     * 
+     * @param jugadorId ID del jugador que tira
+     * @return JsonObject con resultado para broadcast
      */
     public JsonObject tirarDados(int jugadorId) {
+        JsonObject respuesta = new JsonObject();
+        
         try {
+            // Validar que sea el turno del jugador
             Partida partida = motor.getPartida();
             
+            if (!esElTurnoDelJugador(jugadorId)) {
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "NO_ES_TU_TURNO");
+                respuesta.addProperty("mensaje", "No es tu turno");
+                return respuesta;
+            }
+            
+            // Validar que la partida esté EN_PROGRESO
             if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
-                return crearErrorJson("La partida no esta en progreso");
+                respuesta.addProperty("exito", false);
+                respuesta.addProperty("error", "PARTIDA_NO_INICIADA");
+                respuesta.addProperty("mensaje", "La partida no está en progreso");
+                return respuesta;
             }
             
-            if (!partida.esTurnoDeJugador(jugadorId)) {
-                return crearErrorJson("No es tu turno");
-            }
+            // Tirar dados (el motor maneja la lógica completa)
+            ResultadoDados resultado = motor.tirarDados(jugadorId);
             
-            Jugador jugador = partida.getJugadorPorId(jugadorId);
-            if (jugador == null) {
-                return crearErrorJson("Jugador no encontrado");
-            }
+            // Construir respuesta exitosa
+            respuesta.addProperty("exito", true);
+            respuesta.addProperty("tipo", "DADOS_TIRADOS");
+            respuesta.addProperty("jugadorId", jugadorId);
             
-            // ✅ Tirar dados
-            MotorJuego.ResultadoDados resultado = motor.tirarDados(jugadorId);
+            // Agregar los dados
+            JsonArray dadosArray = new JsonArray();
+            dadosArray.add(resultado.dado1);
+            dadosArray.add(resultado.dado2);
+            respuesta.add("dados", dadosArray);
             
-            System.out.println("[DADOS] " + jugador.getNombre() + " tiro: " + 
-                             resultado.dado1 + " y " + resultado.dado2);
+            // Información del turno
+            respuesta.addProperty("esDoble", resultado.esDoble);
+            respuesta.addProperty("bloqueoRoto", resultado.bloqueoRoto);
+            respuesta.addProperty("fichaPerdida", resultado.fichaPerdida);
+            respuesta.addProperty("contadorDobles", resultado.contadorDobles);
             
-            // ✅ Manejo automático según dados
-            boolean puedeJugar = true;
-            int dadoDisponible = 0;
-            
-            if (resultado.esDoble) {
-                if (resultado.dado1 == 5 && resultado.dado2 == 5) {
-                    puedeJugar = intentarSacarDosFichas(jugador, motor);
-                }
+            // Mensajes según el resultado
+            if (resultado.fichaPerdida) {
+                respuesta.addProperty("mensaje", "¡Tres dobles consecutivos! Pierdes una ficha");
+                // El turno pasa al siguiente
+                partida.avanzarTurno();
+                Jugador siguienteJugador = partida.getJugadorActual();
+                respuesta.addProperty("siguienteTurno", siguienteJugador.getId());
+            } else if (resultado.esDoble) {
+                respuesta.addProperty("mensaje", "¡Doble! Puedes tirar de nuevo");
             } else {
-                ResultadoAuto resAuto = manejarAutomatico(jugador, motor, resultado.dado1, resultado.dado2);
-                puedeJugar = resAuto.puedeJugar;
-                dadoDisponible = resAuto.dadoDisponible;
+                respuesta.addProperty("mensaje", "Dados tirados. Selecciona ficha para mover");
             }
             
-            JsonObject respuesta = crearRespuesta(resultado);
-            respuesta.addProperty("puedeJugar", puedeJugar);
-            
-            if (resultado.esDoble) {
-                respuesta.addProperty("debeVolverATirar", true);
-            }
-            
-            if (dadoDisponible > 0) {
-                respuesta.addProperty("dadoDisponible", dadoDisponible);
-            }
+            // Timestamp para sincronización
+            respuesta.addProperty("timestamp", System.currentTimeMillis());
             
             return respuesta;
             
         } catch (MotorJuego.NoEsTuTurnoException e) {
-            return crearErrorJson("No es tu turno");
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "NO_ES_TU_TURNO");
+            respuesta.addProperty("mensaje", e.getMessage());
+            return respuesta;
         } catch (Exception e) {
-            System.err.println("Error tirando dados: " + e.getMessage());
-            return crearErrorJson("Error: " + e.getMessage());
+            respuesta.addProperty("exito", false);
+            respuesta.addProperty("error", "ERROR_SERVIDOR");
+            respuesta.addProperty("mensaje", "Error al tirar dados: " + e.getMessage());
+            e.printStackTrace();
+            return respuesta;
         }
     }
     
-    private static class ResultadoAuto {
-        boolean puedeJugar;
-        int dadoDisponible;
-        ResultadoAuto(boolean p, int d) { puedeJugar = p; dadoDisponible = d; }
-    }
-    
-    private ResultadoAuto manejarAutomatico(Jugador jugador, MotorJuego motor, int dado1, int dado2) {
-        boolean dado1Es5 = (dado1 == 5);
-        boolean dado2Es5 = (dado2 == 5);
-        boolean sumaEs5 = (dado1 + dado2 == 5);
-        boolean puedesSacar = dado1Es5 || dado2Es5 || sumaEs5;
-        
-        boolean tieneFichasEnCasa = jugador.getFichas().stream().anyMatch(f -> f.estaEnCasa());
-        boolean tieneFichasEnTablero = jugador.getFichas().stream()
-            .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
-        
-        if (tieneFichasEnCasa && puedesSacar) {
-            return intentarSacar(jugador, motor, dado1, dado2);
-        }
-        
-        if (tieneFichasEnTablero) {
-            return new ResultadoAuto(true, 0);
-        }
-        
-        System.out.println("[AUTO] " + jugador.getNombre() + " no puede jugar. Pasando turno...");
-        motor.getPartida().avanzarTurno();
-        return new ResultadoAuto(false, 0);
-    }
-    
-    private ResultadoAuto intentarSacar(Jugador jugador, MotorJuego motor, int dado1, int dado2) {
-        try {
-            Ficha fichaEnCasa = jugador.getFichas().stream()
-                .filter(f -> f.estaEnCasa())
-                .findFirst()
-                .orElse(null);
-            
-            if (fichaEnCasa == null) {
-                return new ResultadoAuto(true, 0);
-            }
-            
-            MotorJuego.ResultadoSacar resultado = motor.sacarFichaDeCasa(
-                jugador.getId(),
-                fichaEnCasa.getId(),
-                dado1,
-                dado2
-            );
-            
-            if (resultado.hayDadoDisponible()) {
-                return new ResultadoAuto(true, resultado.getDadoDisponible());
-            } else {
-                motor.getPartida().avanzarTurno();
-                return new ResultadoAuto(false, 0);
-            }
-            
-        } catch (Exception e) {
-            return new ResultadoAuto(true, 0);
-        }
-    }
-    
-    private boolean intentarSacarDosFichas(Jugador jugador, MotorJuego motor) {
-        try {
-            Ficha ficha1 = jugador.getFichas().stream().filter(f -> f.estaEnCasa()).findFirst().orElse(null);
-            if (ficha1 == null) return true;
-            
-            motor.sacarFichaDeCasa(jugador.getId(), ficha1.getId(), 5, 5);
-            
-            Ficha ficha2 = jugador.getFichas().stream().filter(f -> f.estaEnCasa()).findFirst().orElse(null);
-            if (ficha2 != null) {
-                motor.sacarFichaDeCasa(jugador.getId(), ficha2.getId(), 5, 0);
-            }
-            
+    /**
+     * Valida que sea el turno del jugador especificado.
+     */
+    private boolean esElTurnoDelJugador(int jugadorId) {
+        Partida partida = motor.getPartida();
+        if (partida == null) {
             return false;
-        } catch (Exception e) {
-            return true;
         }
+        
+        Jugador jugadorActual = partida.getJugadorActual();
+        return jugadorActual != null && jugadorActual.getId() == jugadorId;
     }
     
-    private JsonObject crearRespuesta(MotorJuego.ResultadoDados resultado) {
-        JsonObject respuesta = new JsonObject();
-        respuesta.addProperty("tipo", "resultado_dados");
-        respuesta.addProperty("exito", true);
+    /**
+     * Obtiene información del turno actual para sincronización.
+     */
+    public JsonObject getInfoTurnoActual() {
+        JsonObject info = new JsonObject();
         
-        JsonObject dados = new JsonObject();
-        dados.addProperty("dado1", resultado.dado1);
-        dados.addProperty("dado2", resultado.dado2);
-        dados.addProperty("suma", resultado.getSuma());
-        dados.addProperty("esDoble", resultado.esDoble);
-        
-        respuesta.add("dados", dados);
-        return respuesta;
-    }
-    
-    private JsonObject crearErrorJson(String mensaje) {
-        JsonObject error = new JsonObject();
-        error.addProperty("tipo", "error");
-        error.addProperty("exito", false);
-        error.addProperty("mensaje", mensaje);
-        return error;
+        try {
+            Partida partida = motor.getPartida();
+            if (partida == null) {
+                info.addProperty("error", "NO_HAY_PARTIDA");
+                return info;
+            }
+            
+            Jugador jugadorActual = partida.getJugadorActual();
+            if (jugadorActual == null) {
+                info.addProperty("error", "NO_HAY_TURNO");
+                return info;
+            }
+            
+            info.addProperty("jugadorActualId", jugadorActual.getId());
+            info.addProperty("jugadorActualNombre", jugadorActual.getNombre());
+            info.addProperty("doblesConsecutivos", motor.getContadorDobles(jugadorActual.getId()));
+            
+            return info;
+            
+        } catch (Exception e) {
+            info.addProperty("error", "ERROR_OBTENER_INFO");
+            return info;
+        }
     }
 }

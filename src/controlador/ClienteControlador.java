@@ -3,13 +3,15 @@ package controlador;
 import vista.VistaCliente;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonArray;
+import controlador.peer.ClientePeer;
 import java.io.*;
 import java.net.Socket;
 
 /**
- * ✅ CORREGIDO: Soporte para dados independientes
- * - Guarda dado disponible después de sacar con 5
- * - Método moverFichaConUnDado() para mover con un solo dado
+ * ✅ ACTUALIZADO: Comunicación P2P real
+ * - Movimientos van directamente a peers (10ms)
+ * - Servidor valida en paralelo (100ms)
  */
 public class ClienteControlador {
     
@@ -20,27 +22,42 @@ public class ClienteControlador {
     private Thread hiloEscucha;
     private boolean conectado;
     private int jugadorId;
+    private String nombreJugador; // ✅ NUEVO
     private int partidaActualId;
     private boolean esmiTurno;
     private int ultimoResultadoDados;
     private int[] ultimosDados = new int[2];
     private boolean debeVolverATirar = false;
-    private int dadoDisponible = 0;  // ✅ NUEVO: Dado disponible después de sacar con 5
-    private boolean tieneFichasEnJuego = false;  // ✅ NUEVO: Si tiene fichas fuera de casa
+    private int dadoDisponible = 0;
+    private boolean tieneFichasEnJuego = false;
     
     private JsonObject ultimoEstadoTablero = null;
+    
+    private ClientePeer clientePeer;
+    private int miPuertoPeer;
     
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
         this.conectado = false;
         this.jugadorId = -1;
+        this.nombreJugador = "";
         this.partidaActualId = -1;
         this.esmiTurno = false;
         this.ultimoResultadoDados = 0;
+        this.clientePeer = null;
+        this.miPuertoPeer = -1;
     }
     
     public boolean conectar(String ip, int puerto) {
         try {
+            miPuertoPeer = asignarPuertoP2PAutomatico();
+            System.out.println("  Puerto P2P asignado automaticamente: " + miPuertoPeer);
+            
+            System.out.println("[DEBUG] Iniciando cliente peer...");
+            clientePeer = new ClientePeer(miPuertoPeer);
+            clientePeer.setVista(vista); // ✅ NUEVO: Conectar vista
+            
+            System.out.println("[DEBUG] Conectando al servidor " + ip + ":" + puerto);
             socket = new Socket(ip, puerto);
             entrada = new BufferedReader(
                 new InputStreamReader(socket.getInputStream(), "UTF-8")
@@ -51,7 +68,17 @@ public class ClienteControlador {
             );
             
             conectado = true;
+            System.out.println(">>> Conectado al servidor: " + ip + ":" + puerto);
+            
             iniciarHiloEscucha();
+            
+            System.out.println("[DEBUG] Iniciando servidor P2P en puerto " + miPuertoPeer);
+            if (!clientePeer.iniciarServidorPeer()) {
+                System.err.println("[ERROR] No se pudo iniciar servidor P2P");
+                return false;
+            }
+            
+            System.out.println("  Servidor P2P iniciado en puerto " + miPuertoPeer);
             
             return true;
             
@@ -59,6 +86,24 @@ public class ClienteControlador {
             System.err.println("Error conectando: " + e.getMessage());
             return false;
         }
+    }
+    
+    private int asignarPuertoP2PAutomatico() {
+        int puertoBase = 6000;
+        int intentos = 0;
+        int maxIntentos = 100;
+        
+        while (intentos < maxIntentos) {
+            int puerto = puertoBase + (int)(Math.random() * 1000);
+            
+            try (java.net.ServerSocket test = new java.net.ServerSocket(puerto)) {
+                return puerto;
+            } catch (IOException e) {
+                intentos++;
+            }
+        }
+        
+        return puertoBase + (int)(Math.random() * 1000);
     }
     
     private void iniciarHiloEscucha() {
@@ -82,6 +127,10 @@ public class ClienteControlador {
     public void desconectar() {
         conectado = false;
         
+        if (clientePeer != null) {
+            clientePeer.cerrar();
+        }
+        
         try {
             if (salida != null) salida.close();
             if (entrada != null) entrada.close();
@@ -102,7 +151,6 @@ public class ClienteControlador {
         }
     }
 
-    
     private void procesarMensajeServidor(String mensajeJson) {
         try {
             JsonObject json = JsonParser.parseString(mensajeJson).getAsJsonObject();
@@ -110,13 +158,23 @@ public class ClienteControlador {
             
             switch (tipo) {
                 case "bienvenida":
+                    if (json.has("sessionId")) {
+                        System.out.println(">>> Session ID: " + json.get("sessionId").getAsString());
+                    }
                     break;
                     
                 case "registro_exitoso":
                     if (json.has("jugador")) {
                         JsonObject jugador = json.getAsJsonObject("jugador");
                         jugadorId = jugador.get("id").getAsInt();
+                        nombreJugador = jugador.get("nombre").getAsString(); // ✅ NUEVO
+                        
+                        notificarPuertoP2PAlServidor();
                     }
+                    break;
+                    
+                case "info_peers":
+                    conectarAPeers(json.getAsJsonArray("peers"));
                     break;
                     
                 case "sala_creada":
@@ -170,6 +228,7 @@ public class ClienteControlador {
                         esmiTurno = true;
                     }
                     
+                    // ✅ Mensaje del servidor (validación oficial)
                     vista.mostrarCambioTurno(nombreTurno);
                     break;
                     
@@ -180,7 +239,6 @@ public class ClienteControlador {
                     break;
                     
                 case "resultado_dados":
-                    // ✅ CORREGIDO: Guardar ambos dados y verificar dado disponible
                     JsonObject dados = json.getAsJsonObject("dados");
                     int dado1 = dados.get("dado1").getAsInt();
                     int dado2 = dados.get("dado2").getAsInt();
@@ -190,14 +248,12 @@ public class ClienteControlador {
                     ultimosDados[1] = dado2;
                     ultimoResultadoDados = dado1 + dado2;
                     
-                    // ✅ Verificar si debe volver a tirar
                     if (json.has("debeVolverATirar")) {
                         debeVolverATirar = json.get("debeVolverATirar").getAsBoolean();
                     } else {
                         debeVolverATirar = false;
                     }
                     
-                    // ✅ NUEVO: Verificar si hay un dado disponible
                     if (json.has("dadoDisponible")) {
                         dadoDisponible = json.get("dadoDisponible").getAsInt();
                         System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
@@ -205,7 +261,6 @@ public class ClienteControlador {
                         dadoDisponible = 0;
                     }
                     
-                    // ✅ NUEVO: Verificar si tiene fichas en juego
                     if (json.has("tieneFichasEnJuego")) {
                         tieneFichasEnJuego = json.get("tieneFichasEnJuego").getAsBoolean();
                         System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
@@ -217,27 +272,25 @@ public class ClienteControlador {
                     break;
                     
                 case "jugador_tiro_dados":
-                    String nombreJugador = json.get("jugadorNombre").getAsString();
-                    int d1 = json.get("dado1").getAsInt();
-                    int d2 = json.get("dado2").getAsInt();
-                    vista.mostrarDadosOtroJugador(nombreJugador, d1, d2);
+                    // ✅ Este mensaje viene del servidor (validación)
+                    // Los peers ya recibieron el mensaje P2P antes
                     break;
                     
                 case "movimiento_exitoso":
-                    // ✅ Verificar si el turno terminó
                     if (json.has("turnoTerminado") && json.get("turnoTerminado").getAsBoolean()) {
                         esmiTurno = false;
                     }
                     break;
                     
                 case "ficha_movida":
+                    // ✅ Este mensaje viene del servidor (confirmación)
+                    // Los peers ya recibieron el mensaje P2P antes
                     String nombreMov = json.get("jugadorNombre").getAsString();
                     int fichaId = json.get("fichaId").getAsInt();
                     int desde = json.get("desde").getAsInt();
                     int hasta = json.get("hasta").getAsInt();
                     boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
                     
-                    // ✅ NUEVO: Verificar si hay dado disponible después de sacar
                     if (json.has("dadoDisponible")) {
                         dadoDisponible = json.get("dadoDisponible").getAsInt();
                         System.out.println("[DEBUG] Dado disponible después de sacar: " + dadoDisponible);
@@ -245,19 +298,16 @@ public class ClienteControlador {
                     
                     if (automatico) {
                         vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
-                    } else {
-                        vista.mostrarMovimientoOtroJugador(nombreMov, fichaId, desde, hasta);
                     }
+                    // No mostrar movimientos normales aquí (ya se mostraron por P2P)
                     break;
                     
                 case "ficha_capturada":
-                    String capturador = json.get("capturadorNombre").getAsString();
-                    vista.mostrarCaptura(capturador);
+                    // Confirmación del servidor (ya se mostró por P2P)
                     break;
                     
                 case "ficha_en_meta":
-                    String jugadorMeta = json.get("jugadorNombre").getAsString();
-                    vista.mostrarLlegadaMeta(jugadorMeta);
+                    // Confirmación del servidor (ya se mostró por P2P)
                     break;
                     
                 case "partida_ganada":
@@ -293,11 +343,39 @@ public class ClienteControlador {
         }
     }
     
+    private void notificarPuertoP2PAlServidor() {
+        JsonObject mensaje = new JsonObject();
+        mensaje.addProperty("tipo", "registrar_puerto_peer");
+        mensaje.addProperty("puertoP2P", miPuertoPeer);
+        enviarMensaje(mensaje);
+    }
+    
+    private void conectarAPeers(JsonArray peers) {
+        if (clientePeer == null) return;
+        
+        for (int i = 0; i < peers.size(); i++) {
+            JsonObject peer = peers.get(i).getAsJsonObject();
+            int peerId = peer.get("id").getAsInt();
+            String peerIp = peer.get("ip").getAsString();
+            int peerPort = peer.get("puerto").getAsInt();
+            
+            if (peerId != jugadorId) {
+                clientePeer.conectarAPeer(peerId, peerIp, peerPort);
+            }
+        }
+        
+        System.out.println("[P2P] Conectado a " + clientePeer.getNumeroPeersConectados() + " peers");
+    }
+    
     private void responderPong() {
         JsonObject pong = new JsonObject();
         pong.addProperty("tipo", "pong");
         enviarMensaje(pong);
     }
+    
+    // ========================================
+    // MÉTODOS DE JUEGO (ACTUALIZADOS CON P2P)
+    // ========================================
     
     public boolean registrar(String nombre) {
         JsonObject mensaje = new JsonObject();
@@ -339,39 +417,111 @@ public class ClienteControlador {
         return enviarMensaje(mensaje);
     }
     
+    /**
+     * ✅ ACTUALIZADO: Tirar dados con comunicación P2P
+     */
     public boolean tirarDados() {
-        JsonObject mensaje = new JsonObject();
-        mensaje.addProperty("tipo", "tirar_dado");
-        return enviarMensaje(mensaje);
+        // 1. Enviar al servidor (validación)
+        JsonObject mensajeServidor = new JsonObject();
+        mensajeServidor.addProperty("tipo", "tirar_dado");
+        enviarMensaje(mensajeServidor);
+        
+        return true;
     }
     
     /**
-     * ✅ MANTENER: Mueve ficha usando ambos dados (compatible con código anterior)
+     * ✅ NUEVO: Notifica a peers que tiraste dados (después de que el servidor confirme)
+     */
+    public void notificarDadosAPeers(int dado1, int dado2) {
+        if (clientePeer == null) return;
+        
+        JsonObject mensajeP2P = new JsonObject();
+        mensajeP2P.addProperty("tipo", "tirada_dados_peer");
+        mensajeP2P.addProperty("jugadorNombre", nombreJugador);
+        mensajeP2P.addProperty("dado1", dado1);
+        mensajeP2P.addProperty("dado2", dado2);
+        
+        System.out.println("[P2P OUT] Notificando tirada de dados a peers");
+        clientePeer.broadcastAPeers(mensajeP2P.toString());
+    }
+    
+    /**
+     * ✅ ACTUALIZADO: Mover ficha con comunicación P2P
      */
     public boolean moverFicha(int fichaId, int dado1, int dado2) {
-        JsonObject mensaje = new JsonObject();
-        mensaje.addProperty("tipo", "mover_ficha");
-        mensaje.addProperty("fichaId", fichaId);
-        mensaje.addProperty("dado1", dado1);
-        mensaje.addProperty("dado2", dado2);
-        return enviarMensaje(mensaje);
+        // 1. Enviar a PEERS primero (optimista - 10ms)
+        enviarMovimientoAPeers(fichaId, -1, -1); // desde/hasta se actualizan después
+        
+        // 2. Enviar al servidor (validación - 100ms)
+        JsonObject mensajeServidor = new JsonObject();
+        mensajeServidor.addProperty("tipo", "mover_ficha");
+        mensajeServidor.addProperty("fichaId", fichaId);
+        mensajeServidor.addProperty("dado1", dado1);
+        mensajeServidor.addProperty("dado2", dado2);
+        
+        return enviarMensaje(mensajeServidor);
     }
     
     /**
-     * ✅ NUEVO: Mueve ficha usando UN SOLO dado
-     * 
-     * @param fichaId ID de la ficha a mover (1-4)
-     * @param valorDado Valor del dado a usar
-     * @param pasarTurno Si true, pasa el turno después de mover
-     * @return true si el mensaje se envió correctamente
+     * ✅ ACTUALIZADO: Mover con un dado con comunicación P2P
      */
     public boolean moverFichaConUnDado(int fichaId, int valorDado, boolean pasarTurno) {
-        JsonObject mensaje = new JsonObject();
-        mensaje.addProperty("tipo", "mover_ficha_un_dado");
-        mensaje.addProperty("fichaId", fichaId);
-        mensaje.addProperty("valorDado", valorDado);
-        mensaje.addProperty("pasarTurno", pasarTurno);
-        return enviarMensaje(mensaje);
+        // 1. Enviar a PEERS primero (optimista - 10ms)
+        enviarMovimientoAPeers(fichaId, -1, -1);
+        
+        // 2. Enviar al servidor (validación - 100ms)
+        JsonObject mensajeServidor = new JsonObject();
+        mensajeServidor.addProperty("tipo", "mover_ficha_un_dado");
+        mensajeServidor.addProperty("fichaId", fichaId);
+        mensajeServidor.addProperty("valorDado", valorDado);
+        mensajeServidor.addProperty("pasarTurno", pasarTurno);
+        
+        return enviarMensaje(mensajeServidor);
+    }
+    
+    /**
+     * ✅ NUEVO: Envía movimiento a todos los peers
+     */
+    private void enviarMovimientoAPeers(int fichaId, int desde, int hasta) {
+        if (clientePeer == null) return;
+        
+        JsonObject mensajeP2P = new JsonObject();
+        mensajeP2P.addProperty("tipo", "movimiento_peer");
+        mensajeP2P.addProperty("jugadorNombre", nombreJugador);
+        mensajeP2P.addProperty("fichaId", fichaId);
+        mensajeP2P.addProperty("desde", desde);
+        mensajeP2P.addProperty("hasta", hasta);
+        
+        System.out.println("[P2P OUT] Enviando movimiento a peers");
+        clientePeer.broadcastAPeers(mensajeP2P.toString());
+    }
+    
+    /**
+     * ✅ NUEVO: Notifica captura a peers
+     */
+    public void notificarCapturaAPeers() {
+        if (clientePeer == null) return;
+        
+        JsonObject mensajeP2P = new JsonObject();
+        mensajeP2P.addProperty("tipo", "captura_peer");
+        mensajeP2P.addProperty("capturadorNombre", nombreJugador);
+        
+        System.out.println("[P2P OUT] Notificando captura a peers");
+        clientePeer.broadcastAPeers(mensajeP2P.toString());
+    }
+    
+    /**
+     * ✅ NUEVO: Notifica llegada a meta a peers
+     */
+    public void notificarMetaAPeers() {
+        if (clientePeer == null) return;
+        
+        JsonObject mensajeP2P = new JsonObject();
+        mensajeP2P.addProperty("tipo", "meta_peer");
+        mensajeP2P.addProperty("jugadorNombre", nombreJugador);
+        
+        System.out.println("[P2P OUT] Notificando meta a peers");
+        clientePeer.broadcastAPeers(mensajeP2P.toString());
     }
     
     public boolean saltarTurno() {
@@ -398,45 +548,26 @@ public class ClienteControlador {
         return ultimoResultadoDados;
     }
     
-    /**
-     * ✅ Retorna ambos dados por separado
-     */
     public int[] getUltimosDados() {
         return ultimosDados;
     }
     
-    /**
-     * ✅ Indica si el jugador sacó doble y debe volver a tirar
-     */
     public boolean debeVolverATirar() {
         return debeVolverATirar;
     }
     
-    /**
-     * ✅ NUEVO: Limpia el estado de volver a tirar después de usarlo
-     */
     public void limpiarDebeVolverATirar() {
         debeVolverATirar = false;
     }
     
-    /**
-     * ✅ NUEVO: Indica si el jugador tiene fichas en juego (fuera de casa)
-     */
     public boolean tieneFichasEnJuego() {
         return tieneFichasEnJuego;
     }
     
-    /**
-     * ✅ NUEVO: Retorna el dado disponible después de sacar con 5
-     * @return Valor del dado disponible, o 0 si no hay ninguno
-     */
     public int getDadoDisponible() {
         return dadoDisponible;
     }
     
-    /**
-     * ✅ NUEVO: Limpia el dado disponible después de usarlo
-     */
     public void limpiarDadoDisponible() {
         dadoDisponible = 0;
     }

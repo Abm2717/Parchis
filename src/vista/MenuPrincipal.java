@@ -6,8 +6,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
- * Menu principal del juego.
- * Se crea o une a una partida
+ * ✅ ACTUALIZADO: Menú con información de arquitectura híbrida
  */
 public class MenuPrincipal {    
     
@@ -21,9 +20,6 @@ public class MenuPrincipal {
         this.scanner = new Scanner(System.in);
     }
     
-    /**
-     * Inicia el menu principal.
-     */
     public void iniciar() {
         mostrarBanner();
         
@@ -55,22 +51,17 @@ public class MenuPrincipal {
         scanner.close();
     }
     
-    /**
-     * Muestra el banner de bienvenida.
-     */
     private void mostrarBanner() {
         System.out.println("\n" + SEPARADOR_DOBLE);
         System.out.println("*                                              *");
         System.out.println("*              JUEGO DE PARCHIS                *");
-        System.out.println("*                                              *");
+        System.out.println("*         ARQUITECTURA HIBRIDA P2P            *");
+        System.out.println("*                  v2.0                        *");
         System.out.println("*                                              *");
         System.out.println(SEPARADOR_DOBLE);
         System.out.println();
     }
     
-    /**
-     * Muestra el menu principal y captura la opcion.
-     */
     private int mostrarMenuPrincipal() {
         System.out.println("\n" + SEPARADOR);
         System.out.println("               MENU PRINCIPAL");
@@ -88,16 +79,11 @@ public class MenuPrincipal {
         }
     }
     
-    //Opcion 1
-    /**
-     * Crea una partida (inicia servidor y se conecta automáticamente).
-     */
     private void crearPartida() {
         System.out.println("\n" + SEPARADOR);
         System.out.println("            CREAR PARTIDA (HOST)");
         System.out.println(SEPARADOR);
         
-        // Solicitar datos de la partida
         System.out.print("Nombre de tu jugador: ");
         String nombreJugador = scanner.nextLine().trim();
         if (nombreJugador.isEmpty()) {
@@ -120,12 +106,10 @@ public class MenuPrincipal {
             return;
         }
         
-        // Obtener puerto
         System.out.print("Puerto del servidor (Enter para 5000): ");
         String puertoStr = scanner.nextLine().trim();
         int puerto = puertoStr.isEmpty() ? 5000 : Integer.parseInt(puertoStr);
         
-        // Iniciar servidor en thread separado
         System.out.println("\n" + SEPARADOR);
         System.out.println("  Iniciando servidor...");
         
@@ -136,17 +120,15 @@ public class MenuPrincipal {
         hiloServidor.setDaemon(false); 
         hiloServidor.start();
         
-        // Esperar a que el servidor esté listo
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         
-        // Mostrar información de conexión
-        mostrarInformacionConexion(puerto);
+        mostrarInformacionConexion(nombrePartida, maxJugadores, puerto);
         
-        System.out.println("\n  Conectandote a tu servidor...");
+        System.out.println("\n  Conectandote como HOST...");
         
         try {
             Thread.sleep(500);
@@ -154,14 +136,10 @@ public class MenuPrincipal {
             e.printStackTrace();
         }
         
-        // Iniciar cliente y conectarse automáticamente
         VistaCliente vistaCliente = new VistaCliente();
         
-        
         if (vistaCliente.conectarAlServidor("localhost", puerto)) {
-            
             if (vistaCliente.registrarJugadorAutomatico(nombreJugador)) {
-            
                 if (vistaCliente.crearSalaAutomatica(nombrePartida, maxJugadores)) {
                     System.out.println("\n  Partida creada exitosamente!");
                     System.out.println("  Esperando a que otros jugadores se unan...");
@@ -170,29 +148,29 @@ public class MenuPrincipal {
                 }
             }
         }
-        
     }
     
-    //Opcion 2
-    /**
-     * Muestra informacion para que otros se conecten.
-     */
-    private void mostrarInformacionConexion(int puerto) {
+    private void mostrarInformacionConexion(String nombrePartida, int maxJugadores, int puerto) {
         System.out.println(SEPARADOR);
         System.out.println("*         SERVIDOR INICIADO                    *");
         System.out.println(SEPARADOR);
         
         try {
-            // Obtener IP local
             String ipLocal = InetAddress.getLocalHost().getHostAddress();
             
-            System.out.println("\n  INFORMACION PARA UNIRSE:");
+            System.out.println("\n  INFORMACION DE LA PARTIDA:");
             System.out.println("  " + SEPARADOR);
-            System.out.println("    IP:     " + ipLocal);
-            System.out.println("    Puerto: " + puerto);
+            System.out.println("    Nombre:          " + nombrePartida);
+            System.out.println("    Max. Jugadores:  " + maxJugadores);
             System.out.println("  " + SEPARADOR);
-            System.out.println("\n  Comparte esta informacion con otros jugadores");
-            System.out.println("  para que puedan unirse a tu partida.");
+            
+            System.out.println("\n  PARA UNIRSE, COMPARTE ESTA INFO:");
+            System.out.println("  " + SEPARADOR);
+            System.out.println("    IP del servidor: " + ipLocal);
+            System.out.println("    Puerto:          " + puerto);
+            System.out.println("  " + SEPARADOR);
+            
+            System.out.println("\n  NOTA: Los puertos P2P se asignan automaticamente");
             
         } catch (UnknownHostException e) {
             System.out.println("  No se pudo obtener la IP local.");
@@ -202,16 +180,11 @@ public class MenuPrincipal {
         System.out.println(SEPARADOR);
     }
     
- 
-    /**
-     * Une a un jugador a una partida existente.
-     */
     private void unirseAPartida() {
         System.out.println("\n" + SEPARADOR);
         System.out.println("           UNIRSE A PARTIDA");
         System.out.println(SEPARADOR);
         
-        // Solicitar datos del jugador
         System.out.print("Tu nombre: ");
         String nombreJugador = scanner.nextLine().trim();
         if (nombreJugador.isEmpty()) {
@@ -219,7 +192,6 @@ public class MenuPrincipal {
             return;
         }
         
-        // Solicitar datos de conexion
         System.out.println("\n  Ingresa los datos de conexion:");
         System.out.print("  IP del servidor: ");
         String ip = scanner.nextLine().trim();
@@ -227,20 +199,17 @@ public class MenuPrincipal {
             ip = "localhost";
         }
         
-        System.out.print("  Puerto (Enter para 5000): ");
+        System.out.print("  Puerto del servidor (Enter para 5000): ");
         String puertoStr = scanner.nextLine().trim();
         int puerto = puertoStr.isEmpty() ? 5000 : Integer.parseInt(puertoStr);
         
-        // Conectar al servidor
         System.out.println("\n  Conectando a " + ip + ":" + puerto + "...");
         
         VistaCliente vistaCliente = new VistaCliente();
         
         if (vistaCliente.conectarAlServidor(ip, puerto)) {
             if (vistaCliente.registrarJugadorAutomatico(nombreJugador)) {
-                
                 vistaCliente.menuUnirsePartida();
-                
                 vistaCliente.iniciarLoopCliente();
             }
         } else {

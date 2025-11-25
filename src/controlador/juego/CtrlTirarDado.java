@@ -15,10 +15,11 @@ import modelo.Tablero.Casilla;
 import modelo.Tablero.Tablero;
 
 /**
- * ✅ CORREGIDO: Manejo de dados independientes
- * - Si sale UN dado 5: Saca ficha y deja el otro dado disponible
- * - Si sale suma=5 (sin ningún 5): Saca ficha y consume ambos dados
- * - Si sale doble 5: Saca DOS fichas (si hay espacio) y permite volver a tirar
+ * ✅ ACTUALIZADO: Lógica completa de dados dobles
+ * 
+ * CASO 1: Doble SIN fichas fuera → Vuelve a tirar (3er doble = pierde turno)
+ * CASO 2: Doble CON fichas fuera → Usa dados independientes, luego vuelve a tirar
+ * CASO 3: 3er doble CON fichas fuera → Penalización (ficha a casa), NO usa dados, pierde turno
  */
 public class CtrlTirarDado {
     
@@ -32,13 +33,11 @@ public class CtrlTirarDado {
     
     public String ejecutar(ClienteHandler cliente, JsonObject datos) {
         try {
-            // Validar jugador
             Jugador jugador = cliente.getJugador();
             if (jugador == null) {
                 return crearError("Debes registrarte primero");
             }
             
-            // Obtener partida
             Optional<Partida> partidaOpt = persistencia.obtenerPartidaDeJugador(jugador.getId());
             if (!partidaOpt.isPresent()) {
                 return crearError("No estas en ninguna partida");
@@ -46,17 +45,14 @@ public class CtrlTirarDado {
             
             Partida partida = partidaOpt.get();
             
-            // Validar estado
             if (partida.getEstado() != EstadoPartida.EN_PROGRESO) {
                 return crearError("La partida no esta en progreso");
             }
             
-            // Validar turno
             if (!partida.esTurnoDeJugador(jugador.getId())) {
                 return crearError("No es tu turno");
             }
             
-            // Obtener motor
             MotorJuego motor = obtenerMotorJuego(partida);
             
             // Tirar dados
@@ -69,35 +65,138 @@ public class CtrlTirarDado {
                 resultado.esDoble
             );
             
-            // Notificar penalización por 3 dobles
-            if (resultado.fichaPerdida) {
+            // Verificar si tiene fichas en tablero (fuera de casa y meta)
+            boolean tieneFichasEnTablero = jugador.getFichas().stream()
+                .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
+            
+            // ========================================
+            // CASO 3: TERCER DOBLE CON FICHAS FUERA
+            // ========================================
+            if (resultado.esDoble && resultado.contadorDobles >= 3 && tieneFichasEnTablero) {
                 System.out.println("[PENALIZACION] " + jugador.getNombre() + 
                                  " sacó 3 dobles consecutivos!");
-                notificarPenalizacionTresDobles(partida, jugador, cliente);
+                
+                // Enviar ficha más adelantada a casa
+                Ficha fichaMasAdelantada = obtenerFichaMasAdelantada(jugador);
+                if (fichaMasAdelantada != null) {
+                    enviarFichaACasa(fichaMasAdelantada);
+                    
+                    VistaServidor.mostrarFichaPerdida(jugador);
+                    notificarPenalizacionTresDobles(partida, jugador, cliente);
+                }
+                
+                // Resetear contador de dobles
+                motor.resetearContadorDobles(jugador.getId());
+                
+                // Pasar turno automáticamente (NO usa los dados del 3er doble)
+                partida.avanzarTurno();
+                
+                Jugador siguienteJugador = partida.getJugadorActual();
+                if (siguienteJugador != null) {
+                    notificarCambioTurno(partida, siguienteJugador, cliente);
+                }
+                
+                // Respuesta indicando penalización y turno perdido
+                JsonObject respuesta = new JsonObject();
+                respuesta.addProperty("tipo", "resultado_dados");
+                respuesta.addProperty("exito", true);
+                
+                JsonObject dadosObj = new JsonObject();
+                dadosObj.addProperty("dado1", resultado.dado1);
+                dadosObj.addProperty("dado2", resultado.dado2);
+                dadosObj.addProperty("esDoble", true);
+                dadosObj.addProperty("contadorDobles", resultado.contadorDobles);
+                respuesta.add("dados", dadosObj);
+                
+                respuesta.addProperty("penalizacion", true);
+                respuesta.addProperty("fichaPerdida", true);
+                respuesta.addProperty("puedeJugar", false);
+                respuesta.addProperty("turnoTerminado", true);
+                respuesta.addProperty("mensaje", "3 dobles consecutivos! Perdiste una ficha y tu turno");
+                
+                return respuesta.toString();
             }
+            
+            // ========================================
+            // CASO 1: TERCER DOBLE SIN FICHAS FUERA
+            // ========================================
+            if (resultado.esDoble && resultado.contadorDobles >= 3 && !tieneFichasEnTablero) {
+                System.out.println("[TURNO PERDIDO] " + jugador.getNombre() + 
+                                 " sacó 3 dobles sin fichas fuera");
+                
+                // Resetear contador de dobles
+                motor.resetearContadorDobles(jugador.getId());
+                
+                // Pasar turno automáticamente
+                partida.avanzarTurno();
+                
+                Jugador siguienteJugador = partida.getJugadorActual();
+                if (siguienteJugador != null) {
+                    notificarCambioTurno(partida, siguienteJugador, cliente);
+                }
+                
+                // Respuesta indicando turno perdido
+                JsonObject respuesta = new JsonObject();
+                respuesta.addProperty("tipo", "resultado_dados");
+                respuesta.addProperty("exito", true);
+                
+                JsonObject dadosObj = new JsonObject();
+                dadosObj.addProperty("dado1", resultado.dado1);
+                dadosObj.addProperty("dado2", resultado.dado2);
+                dadosObj.addProperty("esDoble", true);
+                dadosObj.addProperty("contadorDobles", resultado.contadorDobles);
+                respuesta.add("dados", dadosObj);
+                
+                respuesta.addProperty("puedeJugar", false);
+                respuesta.addProperty("turnoTerminado", true);
+                respuesta.addProperty("mensaje", "3 dobles consecutivos sin fichas fuera. Pierdes turno");
+                
+                return respuesta.toString();
+            }
+            
+            // ========================================
+            // MANEJO NORMAL DE DOBLES
+            // ========================================
             
             // Notificar resultado a todos
             notificarResultadoDados(partida, jugador, resultado, cliente);
             
-            // ========================================
-            // ⭐ LÓGICA CRÍTICA: Manejo según tipo de dados
-            // ========================================
             boolean puedeJugar = true;
             int dadoDisponible = 0;
             
             if (resultado.esDoble) {
-                // ✅ SI ES DOBLE: Manejar según si es doble 5 o no
+                // ========================================
+                // CASO ESPECIAL: DOBLE 5
+                // ========================================
                 if (resultado.dado1 == 5 && resultado.dado2 == 5) {
-                    // DOBLE 5: Intentar sacar DOS fichas
                     puedeJugar = intentarSacarDosFichasConDoble5(partida, jugador, motor, cliente);
+                    
                 } else {
-                    // DOBLE normal: NO hacer nada automático
-                    System.out.println("[DOBLE] " + jugador.getNombre() + " puede volver a tirar.");
-                    puedeJugar = true;
+                    // ========================================
+                    // CASO 1: DOBLE SIN FICHAS FUERA
+                    // ========================================
+                    if (!tieneFichasEnTablero) {
+                        System.out.println("[DOBLE] " + jugador.getNombre() + 
+                                         " puede volver a tirar (sin fichas fuera)");
+                        puedeJugar = true;
+                        
+                    } else {
+                        // ========================================
+                        // CASO 2: DOBLE CON FICHAS FUERA
+                        // ========================================
+                        System.out.println("[DOBLE] " + jugador.getNombre() + 
+                                         " debe usar dados antes de volver a tirar");
+                        puedeJugar = true;
+                    }
                 }
                 
             } else {
-                // ✅ SI NO ES DOBLE: Aplicar lógica automática
+                // ========================================
+                // NO ES DOBLE: Resetear contador
+                // ========================================
+                motor.resetearContadorDobles(jugador.getId());
+                
+                // Manejo automático normal (sacar con 5, etc.)
                 ResultadoAutomatico resAuto = manejarTurnoAutomatico(
                     partida, 
                     jugador, 
@@ -113,14 +212,18 @@ public class CtrlTirarDado {
             // Crear respuesta
             JsonObject respuesta = crearRespuestaResultado(resultado);
             respuesta.addProperty("puedeJugar", puedeJugar);
+            respuesta.addProperty("tieneFichasEnJuego", tieneFichasEnTablero);
             
-            // ✅ Si es doble, indicar que debe volver a tirar
             if (resultado.esDoble) {
                 respuesta.addProperty("debeVolverATirar", true);
-                respuesta.addProperty("mensaje", "¡Doble! Vuelve a tirar dados");
+                
+                if (tieneFichasEnTablero) {
+                    respuesta.addProperty("mensaje", "¡Doble! Usa tus dados y podrás volver a tirar");
+                } else {
+                    respuesta.addProperty("mensaje", "¡Doble! Vuelve a tirar dados");
+                }
             }
             
-            // ✅ Si hay un dado disponible, indicarlo
             if (dadoDisponible > 0) {
                 respuesta.addProperty("dadoDisponible", dadoDisponible);
                 respuesta.addProperty("mensaje", "Tienes un dado " + dadoDisponible + " disponible para mover");
@@ -137,12 +240,9 @@ public class CtrlTirarDado {
         }
     }
     
-    /**
-     * ✅ NUEVO: Clase para resultado de manejo automático
-     */
     private static class ResultadoAutomatico {
         boolean puedeJugar;
-        int dadoDisponible; // Si queda un dado disponible después de sacar
+        int dadoDisponible;
         
         ResultadoAutomatico(boolean puedeJugar, int dadoDisponible) {
             this.puedeJugar = puedeJugar;
@@ -151,68 +251,65 @@ public class CtrlTirarDado {
     }
     
     /**
-     * ✅ CORREGIDO: Maneja automáticamente el turno según los dados
-     * 
-     * REGLAS:
-     * 1. Si tiene fichas en casa Y sale 5 → Saca automáticamente
-     *    - Si es UN dado 5: Saca y deja el OTRO dado disponible
-     *    - Si es suma=5: Saca y consume AMBOS dados (pasa turno)
-     * 2. Si NO puede sacar Y tiene fichas en tablero → Jugador elige
-     * 3. Si NO puede hacer nada → Pasa turno automáticamente
-     * 
-     * @return ResultadoAutomatico con puedeJugar y dadoDisponible
+     * Obtiene la ficha más adelantada (excluyendo meta y casa)
      */
+    private Ficha obtenerFichaMasAdelantada(Jugador jugador) {
+        return jugador.getFichas().stream()
+            .filter(f -> !f.estaEnCasa() && !f.estaEnMeta())
+            .max((f1, f2) -> {
+                Casilla c1 = f1.getCasillaActual();
+                Casilla c2 = f2.getCasillaActual();
+                if (c1 == null) return -1;
+                if (c2 == null) return 1;
+                return Integer.compare(c1.getIndice(), c2.getIndice());
+            })
+            .orElse(null);
+    }
+    
+    private void enviarFichaACasa(Ficha ficha) {
+        ficha.setCasillaActual(null);
+        ficha.setEstado(modelo.Ficha.EstadoFicha.EN_CASA);
+    }
+    
     private ResultadoAutomatico manejarTurnoAutomatico(Partida partida, Jugador jugador, MotorJuego motor,
                                                         int dado1, int dado2, ClienteHandler cliente) {
         
-        // Verificar regla del 5
         boolean dado1Es5 = (dado1 == 5);
         boolean dado2Es5 = (dado2 == 5);
         boolean sumaEs5 = (dado1 + dado2 == 5);
         boolean puedesSacar = dado1Es5 || dado2Es5 || sumaEs5;
         
-        // Verificar si tiene fichas en casa
         boolean tieneFichasEnCasa = jugador.getFichas().stream()
             .anyMatch(f -> f.estaEnCasa());
         
-        // Verificar si tiene fichas en tablero
         boolean tieneFichasEnTablero = jugador.getFichas().stream()
             .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
         
-        // CASO 1: Tiene fichas en casa Y puede sacar con 5 → Sacar automáticamente
         if (tieneFichasEnCasa && puedesSacar) {
             return intentarSacarFichaAutomatica(partida, jugador, motor, dado1, dado2, cliente);
         }
         
-        // CASO 2: Tiene fichas en tablero → Dejar que el jugador elija
         if (tieneFichasEnTablero) {
-            return new ResultadoAutomatico(true, 0); // Puede jugar, sin dado disponible especial
+            return new ResultadoAutomatico(true, 0);
         }
         
-        // CASO 3: No puede hacer nada → Pasar turno automáticamente
         System.out.println("[AUTO] " + jugador.getNombre() + " no puede jugar. Pasando turno...");
         pasarTurnoAutomaticamente(partida, jugador, cliente);
         return new ResultadoAutomatico(false, 0);
     }
     
-    /**
-     * ✅ NUEVO: Intenta sacar DOS fichas cuando sale doble 5
-     */
     private boolean intentarSacarDosFichasConDoble5(Partida partida, Jugador jugador, MotorJuego motor,
                                                      ClienteHandler cliente) {
         try {
-            // Buscar fichas en casa
             Ficha ficha1 = jugador.getFichas().stream()
                 .filter(f -> f.estaEnCasa())
                 .findFirst()
                 .orElse(null);
             
             if (ficha1 == null) {
-                // No tiene fichas en casa, dejar que el jugador juegue normal
                 return true;
             }
             
-            // Sacar primera ficha
             System.out.println("[AUTO DOBLE-5] Sacando primera ficha #" + ficha1.getId() + " de " + jugador.getNombre());
             
             MotorJuego.ResultadoSacar resultado1 = motor.sacarFichaDeCasa(
@@ -224,7 +321,6 @@ public class CtrlTirarDado {
             
             notificarSacarFicha(partida, jugador, resultado1, cliente);
             
-            // Buscar segunda ficha en casa
             Ficha ficha2 = jugador.getFichas().stream()
                 .filter(f -> f.estaEnCasa())
                 .findFirst()
@@ -232,11 +328,9 @@ public class CtrlTirarDado {
             
             if (ficha2 == null) {
                 System.out.println("[AUTO DOBLE-5] No hay más fichas en casa para sacar");
-                // Ya se usaron ambos 5s, pero es doble así que puede volver a tirar
-                return false; // Volver al menú para tirar de nuevo
+                return false;
             }
             
-            // Verificar si hay espacio en el inicio
             Tablero tablero = partida.getTablero();
             Casilla salida = tablero.getCasillaSalidaParaJugador(jugador.getId());
             int fichasEnSalida = (int) jugador.getFichas().stream()
@@ -246,47 +340,37 @@ public class CtrlTirarDado {
             
             if (fichasEnSalida >= 2) {
                 System.out.println("[AUTO DOBLE-5] Ya hay 2 fichas en el inicio, no se puede sacar la segunda");
-                return false; // Volver al menú para tirar de nuevo
+                return false;
             }
             
-            // Sacar segunda ficha
             System.out.println("[AUTO DOBLE-5] Sacando segunda ficha #" + ficha2.getId() + " de " + jugador.getNombre());
             
             MotorJuego.ResultadoSacar resultado2 = motor.sacarFichaDeCasa(
                 jugador.getId(),
                 ficha2.getId(),
                 5,
-                0 // Solo usar el segundo 5
+                0
             );
             
             notificarSacarFicha(partida, jugador, resultado2, cliente);
             
-            // Ya se usaron ambos 5s, pero es doble así que puede volver a tirar
-            return false; // Volver al menú para tirar de nuevo
+            return false;
             
         } catch (Exception e) {
             System.err.println("[AUTO DOBLE-5] Error: " + e.getMessage());
-            return true; // Dejar que el jugador juegue normal
+            return true;
         }
     }
     
-    /**
-     * ✅ CORREGIDO: Intenta sacar automáticamente según regla del 5
-     * 
-     * - Si un dado es 5: Saca y deja el OTRO dado disponible
-     * - Si suma es 5: Saca y consume AMBOS dados (pasa turno)
-     */
     private ResultadoAutomatico intentarSacarFichaAutomatica(Partida partida, Jugador jugador, MotorJuego motor,
                                                               int dado1, int dado2, ClienteHandler cliente) {
         try {
-            // Buscar la primera ficha en casa
             Ficha fichaEnCasa = jugador.getFichas().stream()
                 .filter(f -> f.estaEnCasa())
                 .findFirst()
                 .orElse(null);
             
             if (fichaEnCasa == null) {
-                // No hay fichas en casa, dejar que el jugador elija
                 return new ResultadoAutomatico(true, 0);
             }
             
@@ -294,7 +378,6 @@ public class CtrlTirarDado {
             
             System.out.println("[AUTO] Sacando automáticamente ficha #" + fichaId + " de " + jugador.getNombre());
             
-            // ✅ SACAR usando el nuevo método que devuelve qué dados se usaron
             MotorJuego.ResultadoSacar resultado = motor.sacarFichaDeCasa(
                 jugador.getId(),
                 fichaId,
@@ -302,7 +385,6 @@ public class CtrlTirarDado {
                 dado2
             );
             
-            // Mostrar en consola servidor
             VistaServidor.mostrarMovimientoFicha(
                 jugador,
                 fichaId,
@@ -310,10 +392,8 @@ public class CtrlTirarDado {
                 resultado.casillaLlegada
             );
             
-            // Notificar a todos
             notificarSacarFicha(partida, jugador, resultado, cliente);
             
-            // ✅ Si hubo captura, notificar
             if (resultado.capturaRealizada) {
                 Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
                 VistaServidor.mostrarCaptura(
@@ -327,15 +407,12 @@ public class CtrlTirarDado {
                                resultado.jugadorCapturadoId, resultado.bonusGanado, cliente);
             }
             
-            // ✅ DECISIÓN: ¿Qué hacer después de sacar?
             if (resultado.hayDadoDisponible()) {
-                // Hay un dado disponible, el jugador puede elegir qué hacer
                 int dadoDisp = resultado.getDadoDisponible();
                 System.out.println("[AUTO] Ficha sacada. Dado " + dadoDisp + " disponible para mover.");
                 return new ResultadoAutomatico(true, dadoDisp);
                 
             } else {
-                // Se usaron ambos dados, pasar turno automáticamente
                 System.out.println("[AUTO] Ficha sacada con ambos dados. Pasando turno...");
                 
                 try {
@@ -355,7 +432,6 @@ public class CtrlTirarDado {
             }
             
         } catch (MotorJuego.MovimientoInvalidoException e) {
-            // Si no puede sacar (ej: salida bloqueada), dejar que intente mover otra ficha
             System.out.println("[AUTO] No se pudo sacar automáticamente: " + e.getMessage());
             return new ResultadoAutomatico(true, 0);
         } catch (Exception e) {
@@ -365,9 +441,6 @@ public class CtrlTirarDado {
         }
     }
     
-    /**
-     * ✅ Pasa el turno automáticamente
-     */
     private void pasarTurnoAutomaticamente(Partida partida, Jugador jugador, ClienteHandler cliente) {
         try {
             Thread.sleep(300);
@@ -379,7 +452,6 @@ public class CtrlTirarDado {
         
         Jugador siguienteJugador = partida.getJugadorActual();
         if (siguienteJugador != null) {
-            // Notificar cambio de turno a todos PRIMERO
             JsonObject cambioTurno = new JsonObject();
             cambioTurno.addProperty("tipo", "cambio_turno");
             cambioTurno.addProperty("jugadorId", siguienteJugador.getId());
@@ -398,7 +470,6 @@ public class CtrlTirarDado {
                 Thread.currentThread().interrupt();
             }
             
-            // Notificar al siguiente jugador
             JsonObject tuTurno = new JsonObject();
             tuTurno.addProperty("tipo", "tu_turno");
             tuTurno.addProperty("jugadorId", siguienteJugador.getId());
@@ -430,14 +501,10 @@ public class CtrlTirarDado {
             cliente.getSessionId()
         );
         
-        // ✅ Usar el nuevo método que incluye tieneFichasEnJuego
         JsonObject respuestaLocal = crearRespuestaResultadoConJugador(resultado, jugador);
         cliente.enviarMensaje(respuestaLocal.toString());
     }
     
-    /**
-     * ✅ Notifica penalización por 3 dobles consecutivos
-     */
     private void notificarPenalizacionTresDobles(Partida partida, Jugador jugador, 
                                                  ClienteHandler cliente) {
         JsonObject notificacion = new JsonObject();
@@ -454,9 +521,6 @@ public class CtrlTirarDado {
         );
     }
     
-    /**
-     * ✅ NUEVO: Notifica cuando se saca una ficha automáticamente
-     */
     private void notificarSacarFicha(Partida partida, Jugador jugador, 
                                      MotorJuego.ResultadoSacar resultado,
                                      ClienteHandler cliente) {
@@ -469,7 +533,6 @@ public class CtrlTirarDado {
         notificacion.addProperty("hasta", resultado.casillaLlegada);
         notificacion.addProperty("automatico", true);
         
-        // ✅ Indicar si hay dado disponible
         if (resultado.hayDadoDisponible()) {
             notificacion.addProperty("dadoDisponible", resultado.getDadoDisponible());
         }
@@ -480,7 +543,6 @@ public class CtrlTirarDado {
             null
         );
         
-        // Notificar estado del tablero
         if (partida.getTablero() != null) {
             JsonObject estadoTablero = partida.getTablero().generarEstadoJSON();
             JsonObject notifTablero = new JsonObject();
@@ -513,7 +575,6 @@ public class CtrlTirarDado {
     }
     
     private void notificarCambioTurno(Partida partida, Jugador jugadorTurno, ClienteHandler cliente) {
-        // Notificar a todos sobre el cambio de turno PRIMERO
         JsonObject cambioTurno = new JsonObject();
         cambioTurno.addProperty("tipo", "cambio_turno");
         cambioTurno.addProperty("jugadorId", jugadorTurno.getId());
@@ -531,7 +592,6 @@ public class CtrlTirarDado {
             Thread.currentThread().interrupt();
         }
         
-        // Notificar específicamente al jugador que le toca
         JsonObject tuTurno = new JsonObject();
         tuTurno.addProperty("tipo", "tu_turno");
         tuTurno.addProperty("jugadorId", jugadorTurno.getId());
@@ -573,13 +633,9 @@ public class CtrlTirarDado {
         return respuesta;
     }
     
-    /**
-     * ✅ NUEVO: Versión mejorada que incluye información sobre fichas en juego
-     */
     private JsonObject crearRespuestaResultadoConJugador(MotorJuego.ResultadoDados resultado, Jugador jugador) {
         JsonObject respuesta = crearRespuestaResultado(resultado);
         
-        // ✅ Agregar si tiene fichas en juego
         boolean tieneFichasEnJuego = jugador.getFichas().stream()
             .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
         

@@ -309,91 +309,82 @@ public class VistaCliente {
      * 4. Si es DOBLE normal y turno sigue → Usar dados y volver al menú
      * 5. Si NO es doble → Preguntar qué hacer con cada dado
      */
+    /**
+    * ✅ ACTUALIZADO: Manejo completo de dobles según los 3 casos
+    */
     private void tirarDadosYMover() {
-        System.out.println("\nTirando dados...");
+       System.out.println("\nTirando dados...");
 
-        controlador.tirarDados();
+       controlador.tirarDados();
 
-        // Esperar respuesta del servidor
-        try {
-            Thread.sleep(1500);
-        } catch (InterruptedException e) { }
+       // Esperar respuesta del servidor
+       try {
+           Thread.sleep(1500);
+       } catch (InterruptedException e) { }
 
-        int[] dados = controlador.getUltimosDados();
-        boolean esDoble5 = (dados[0] == 5 && dados[1] == 5);
+       int[] dados = controlador.getUltimosDados();
 
-        // ========================================
-        // VERIFICACIÓN #1: ¿ES DOBLE 5?
-        // ========================================
-        if (esDoble5) {
-            // El servidor ya sacó 2 fichas automáticamente
-            // Los dados YA SE CONSUMIERON, no preguntar por ellos
-            System.out.println("\n** ¡DOBLE 5! Sacaste 2 fichas. Vuelve a tirar dados **");
-            controlador.limpiarDebeVolverATirar();
-            return; // Vuelve al menú sin preguntar por dados
-        }
+       // ✅ Notificar a peers que tiraste dados
+       controlador.notificarDadosAPeers(dados[0], dados[1]);
 
-        // ========================================
-        // VERIFICACIÓN #2: ¿ES DOBLE Y TURNO TERMINÓ?
-        // ========================================
-        // Si es doble pero el turno ya terminó = PENALIZACIÓN (3er doble)
-        boolean esDoble = controlador.debeVolverATirar();
-        
-        if (esDoble && !controlador.esmiTurno()) {
-            // El servidor aplicó penalización ANTES de usar los dados
-            System.out.println("\n[PENALIZACIÓN] 3 dobles consecutivos. Perdiste tu ficha más avanzada.");
-            controlador.limpiarDebeVolverATirar();
-            return;
-        }
+       boolean esDoble5 = (dados[0] == 5 && dados[1] == 5);
 
-        // ========================================
-        // VERIFICACIÓN #3: ¿TURNO TERMINÓ (no doble)?
-        // ========================================
-        if (!controlador.esmiTurno()) {
-            System.out.println("\n[INFO] Tu turno ha terminado.");
-            return;
-        }
+       // ========================================
+       // VERIFICACIÓN #1: ¿ES DOBLE 5?
+       // ========================================
+       if (esDoble5) {
+           System.out.println("\n** ¡DOBLE 5! Sacaste 2 fichas. Vuelve a tirar dados **");
+           controlador.limpiarDebeVolverATirar();
+           return;
+       }
 
-        // ========================================
-        // VERIFICACIÓN #4: ¿ES DOBLE NORMAL?
-        // ========================================
-        if (esDoble) {
-            System.out.println("\n[INFO] Sacaste DOBLE");
-            controlador.limpiarDebeVolverATirar();
-            
-            // ✅ CORREGIDO: Solo NO preguntar si NO tiene fichas en juego
-            if (!puedeJugarConDados()) {
-                // No tiene fichas para mover
-                System.out.println("[INFO] No tienes fichas en juego para usar estos dados.");
-                System.out.println("\n** ¡DOBLE! Vuelve a tirar dados **");
-                return;
-            }
-            
-            // ✅ SÍ tiene fichas, usar los dados del doble (NO pasar turno)
-            System.out.println("[INFO] Usa tus dados y podrás volver a tirar");
-            usarDadosIndependientes(true); // ✅ true = es doble
-            
-            // Esperar respuesta del servidor
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) { }
-            
-            // Después de usar los dados, el turno DEBE seguir siendo tuyo
-            if (!controlador.esmiTurno()) {
-                System.out.println("\n[INFO] Tu turno ha terminado.");
-                return;
-            }
-            
-            // Mostrar que puede volver a tirar
-            System.out.println("\n** ¡DOBLE! Vuelve a tirar dados **");
-            return;
-        }
+       // ========================================
+       // VERIFICACIÓN #2: ¿TURNO TERMINÓ? (Penalización o turno perdido)
+       // ========================================
+       if (!controlador.esmiTurno()) {
+           System.out.println("\n[INFO] Tu turno ha terminado.");
+           return;
+       }
 
-        // ========================================
-        // VERIFICACIÓN #5: USO INDEPENDIENTE DE DADOS
-        // ========================================
-        usarDadosIndependientes(false); // ✅ false = NO es doble
-    }
+       // ========================================
+       // VERIFICACIÓN #3: ¿ES DOBLE?
+       // ========================================
+       boolean esDoble = controlador.debeVolverATirar();
+
+       if (esDoble) {
+           System.out.println("\n[INFO] Sacaste DOBLE");
+           controlador.limpiarDebeVolverATirar();
+
+           // ✅ CASO 1: Doble SIN fichas fuera → Volver a tirar directamente
+           if (!controlador.tieneFichasEnJuego()) {
+               System.out.println("[INFO] No tienes fichas fuera. Vuelve a tirar dados");
+               return; // Volver al menú para tirar de nuevo
+           }
+
+           // ✅ CASO 2: Doble CON fichas fuera → Usar dados, luego volver a tirar
+           System.out.println("[INFO] Usa tus dados y podrás volver a tirar");
+           usarDadosIndependientes(true); // true = es doble, no pasa turno
+
+           // Esperar respuesta del servidor
+           try {
+               Thread.sleep(500);
+           } catch (InterruptedException e) { }
+
+           // Verificar si el turno sigue siendo nuestro
+           if (!controlador.esmiTurno()) {
+               System.out.println("\n[INFO] Tu turno ha terminado.");
+               return;
+           }
+
+           System.out.println("\n** ¡DOBLE! Vuelve a tirar dados **");
+           return;
+       }
+
+       // ========================================
+       // NO ES DOBLE: Usar dados normalmente
+       // ========================================
+       usarDadosIndependientes(false); // false = NO es doble, sí pasa turno
+   }
     
     /**
      * ✅ CORREGIDO: Permite usar cada dado de manera independiente

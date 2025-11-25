@@ -14,7 +14,7 @@ import modelo.servicios.PersistenciaServicio;
 import java.util.Optional;
 
 /**
- * ✅ CORREGIDO: Dispatcher ahora extrae dado1 y dado2 del JSON
+ * ✅ ACTUALIZADO: Dispatcher con soporte para mensajes P2P
  */
 public class Dispatcher {
     
@@ -64,6 +64,8 @@ public class Dispatcher {
             case "registrar":
             case "login":
                 return manejarRegistro(datos);
+            case "registrar_puerto_peer":  // ✅ NUEVO
+                return manejarRegistroPuertoPeer(datos);
             case "ping":
                 return manejarPing();
             case "desconectar":
@@ -108,6 +110,40 @@ public class Dispatcher {
         }
     }
     
+    /**
+     * ✅ NUEVO: Registra el puerto P2P del cliente
+     */
+    private String manejarRegistroPuertoPeer(JsonObject datos) {
+        try {
+            Jugador jugador = clienteHandler.getJugador();
+            if (jugador == null) {
+                return crearRespuestaError("Debes registrarte primero");
+            }
+            
+            int puertoPeer = datos.get("puertoP2P").getAsInt();
+            String ip = clienteHandler.getSocket().getInetAddress().getHostAddress();
+            
+            // Registrar en el servidor
+            clienteHandler.getServidor().registrarInfoPeer(jugador.getId(), ip, puertoPeer);
+            
+            // Si está en una partida, enviar info de peers
+            Optional<Partida> partidaOpt = PersistenciaServicio.getInstancia()
+                .obtenerPartidaDeJugador(jugador.getId());
+            
+            if (partidaOpt.isPresent()) {
+                clienteHandler.getServidor().enviarInfoPeersAJugador(
+                    jugador.getId(), 
+                    partidaOpt.get().getId()
+                );
+            }
+            
+            return crearRespuestaExito("Puerto P2P registrado");
+            
+        } catch (Exception e) {
+            return crearRespuestaError("Error registrando puerto P2P: " + e.getMessage());
+        }
+    }
+    
     private String manejarPing() {
         return "{\"tipo\":\"pong\",\"timestamp\":" + System.currentTimeMillis() + "}";
     }
@@ -140,9 +176,6 @@ public class Dispatcher {
         }
     }
     
-    /**
-    * ✅ CORREGIDO: Maneja el movimiento de ficha con UN solo dado
-    */
     private String manejarMoverFichaUnDado(JsonObject datos) {
         if (!datos.has("fichaId") || !datos.has("valorDado")) {
             return crearRespuestaError("Faltan parametros: fichaId y valorDado requeridos");
@@ -153,7 +186,6 @@ public class Dispatcher {
             int valorDado = datos.get("valorDado").getAsInt();
             boolean pasarTurno = datos.has("pasarTurno") && datos.get("pasarTurno").getAsBoolean();
 
-            // ✅ CORREGIDO: Usar this.clienteHandler (NO this.handler)
             return ctrlMoverFicha.moverConUnDado(this.clienteHandler, fichaId, valorDado, pasarTurno);
 
         } catch (Exception e) {
@@ -193,18 +225,15 @@ public class Dispatcher {
         }
     }
     
-    /**
-     * ✅ CORREGIDO: Ahora extrae dado1 y dado2 por separado
-     */
     private String manejarMoverFicha(JsonObject datos) {
         try {
             if (!datos.has("fichaId") || !datos.has("dado1") || !datos.has("dado2")) {
                 return crearRespuestaError("Faltan parametros: fichaId, dado1 y dado2");
             }
             int fichaId = datos.get("fichaId").getAsInt();
-            int dado1 = datos.get("dado1").getAsInt();  // ✅ CAMBIO
-            int dado2 = datos.get("dado2").getAsInt();  // ✅ CAMBIO
-            return ctrlMoverFicha.ejecutar(clienteHandler, fichaId, dado1, dado2);  // ✅ CAMBIO
+            int dado1 = datos.get("dado1").getAsInt();
+            int dado2 = datos.get("dado2").getAsInt();
+            return ctrlMoverFicha.ejecutar(clienteHandler, fichaId, dado1, dado2);
         } catch (Exception e) {
             return crearRespuestaError("Error moviendo ficha: " + e.getMessage());
         }

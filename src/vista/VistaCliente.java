@@ -177,24 +177,39 @@ public class VistaCliente {
         System.out.println(SEPARADOR);
         System.out.println("Esperando a que mas jugadores se unan...");
         System.out.println(SEPARADOR_FINO);
-        
+
         controlador.mostrarJugadoresEnSala();
-        
+
         System.out.println(SEPARADOR_FINO);
         System.out.print("\nEscribe 'listo' cuando estes preparado: ");
-        
-        String respuesta = scanner.nextLine().trim().toLowerCase();
-        
-        if (respuesta.equals("listo")) {
-            boolean marcado = controlador.marcarListo();
-            
-            if (marcado) {
-                System.out.println("Esperando a otros jugadores...");
-                esperandoInicioPartida = true;
+
+        // ✅ MEJORADO: Loop hasta que escriba "listo" correctamente
+        boolean listoMarcado = false;
+        while (!listoMarcado) {
+            String respuesta = scanner.nextLine().trim().toLowerCase();
+
+            if (respuesta.equals("listo")) {
+                boolean marcado = controlador.marcarListo();
+
+                if (marcado) {
+                    System.out.println("Esperando a otros jugadores...");
+                    esperandoInicioPartida = true;
+                    listoMarcado = true;
+                }
+            } else {
+                // ✅ Si no escribió "listo", volver a preguntar
+                System.out.println("\n[ERROR] Debes escribir 'listo' para continuar");
+                System.out.print("Escribe 'listo' cuando estes preparado: ");
             }
         }
     }
     
+    public void mostrarSalidaBloqueada() {
+        System.out.println("\n" + SEPARADOR_FINO);
+        System.out.println("  [INFO] Tu salida está bloqueada por tus fichas");
+        System.out.println("  Mueve una ficha del bloqueo para poder sacar");
+        System.out.println(SEPARADOR_FINO);
+    }
     
     public void iniciarLoopCliente() {
         esperarEnSala();

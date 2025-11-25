@@ -155,28 +155,28 @@ public class ClienteControlador {
         try {
             JsonObject json = JsonParser.parseString(mensajeJson).getAsJsonObject();
             String tipo = json.has("tipo") ? json.get("tipo").getAsString() : "";
-            
+
             switch (tipo) {
                 case "bienvenida":
                     if (json.has("sessionId")) {
                         System.out.println(">>> Session ID: " + json.get("sessionId").getAsString());
                     }
                     break;
-                    
+
                 case "registro_exitoso":
                     if (json.has("jugador")) {
                         JsonObject jugador = json.getAsJsonObject("jugador");
                         jugadorId = jugador.get("id").getAsInt();
-                        nombreJugador = jugador.get("nombre").getAsString(); // ✅ NUEVO
-                        
+                        nombreJugador = jugador.get("nombre").getAsString();
+
                         notificarPuertoP2PAlServidor();
                     }
                     break;
-                    
+
                 case "info_peers":
                     conectarAPeers(json.getAsJsonArray("peers"));
                     break;
-                    
+
                 case "sala_creada":
                 case "union_exitosa":
                     if (json.has("partida")) {
@@ -184,24 +184,24 @@ public class ClienteControlador {
                         partidaActualId = partida.get("id").getAsInt();
                     }
                     break;
-                    
+
                 case "jugador_unido":
                     String nombre = json.get("nombre").getAsString();
                     int total = json.get("totalJugadores").getAsInt();
                     System.out.println("\n[INFO] " + nombre + " se unio a la partida (" + total + " jugadores)");
                     break;
-                    
+
                 case "jugador_listo":
                     String nombreListo = json.get("nombre").getAsString();
                     System.out.println("[INFO] " + nombreListo + " esta listo");
                     break;
-                    
+
                 case "partida_iniciada":
                     if (json.has("turnoJugadorId")) {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    
+
                     new Thread(() -> {
                         try {
                             Thread.sleep(500);
@@ -211,133 +211,136 @@ public class ClienteControlador {
                         }
                     }).start();
                     break;
-                    
+
                 case "tu_turno":
                     esmiTurno = true;
                     System.out.println("[DEBUG] Recibido 'tu_turno' - Activando turno");
                     vista.notificarTurno();
                     break;
-                    
+
                 case "cambio_turno":
                     esmiTurno = false;
                     String nombreTurno = json.get("jugadorNombre").getAsString();
                     int jugadorTurnoId = json.get("jugadorId").getAsInt();
-                    
+
                     if (jugadorTurnoId == jugadorId) {
                         System.out.println("[DEBUG] Cambio de turno dice que es MI turno");
                         esmiTurno = true;
                     }
-                    
-                    // ✅ Mensaje del servidor (validación oficial)
+
                     vista.mostrarCambioTurno(nombreTurno);
                     break;
-                    
+
                 case "estado_tablero":
                     JsonObject tableroJson = json.getAsJsonObject("tablero");
                     ultimoEstadoTablero = tableroJson;
                     vista.mostrarEstadoTablero(tableroJson);
                     break;
-                    
+
                 case "resultado_dados":
                     JsonObject dados = json.getAsJsonObject("dados");
                     int dado1 = dados.get("dado1").getAsInt();
                     int dado2 = dados.get("dado2").getAsInt();
                     boolean esDoble = dados.get("esDoble").getAsBoolean();
-                    
+
                     ultimosDados[0] = dado1;
                     ultimosDados[1] = dado2;
                     ultimoResultadoDados = dado1 + dado2;
-                    
+
                     if (json.has("debeVolverATirar")) {
                         debeVolverATirar = json.get("debeVolverATirar").getAsBoolean();
                     } else {
                         debeVolverATirar = false;
                     }
-                    
+
                     if (json.has("dadoDisponible")) {
                         dadoDisponible = json.get("dadoDisponible").getAsInt();
                         System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
                     } else {
                         dadoDisponible = 0;
                     }
-                    
+
                     if (json.has("tieneFichasEnJuego")) {
                         tieneFichasEnJuego = json.get("tieneFichasEnJuego").getAsBoolean();
                         System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
                     } else {
                         tieneFichasEnJuego = false;
                     }
-                    
+
                     vista.mostrarResultadoDados(dado1, dado2, esDoble);
                     break;
-                    
+
                 case "jugador_tiro_dados":
-                    // ✅ Este mensaje viene del servidor (validación)
                     // Los peers ya recibieron el mensaje P2P antes
                     break;
-                    
+
                 case "movimiento_exitoso":
                     if (json.has("turnoTerminado") && json.get("turnoTerminado").getAsBoolean()) {
                         esmiTurno = false;
                     }
                     break;
-                    
+
                 case "ficha_movida":
-                    // ✅ Este mensaje viene del servidor (confirmación)
-                    // Los peers ya recibieron el mensaje P2P antes
                     String nombreMov = json.get("jugadorNombre").getAsString();
                     int fichaId = json.get("fichaId").getAsInt();
                     int desde = json.get("desde").getAsInt();
                     int hasta = json.get("hasta").getAsInt();
                     boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
-                    
+
                     if (json.has("dadoDisponible")) {
                         dadoDisponible = json.get("dadoDisponible").getAsInt();
                         System.out.println("[DEBUG] Dado disponible después de sacar: " + dadoDisponible);
                     }
-                    
+
                     if (automatico) {
                         vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
                     }
-                    // No mostrar movimientos normales aquí (ya se mostraron por P2P)
                     break;
-                    
+
                 case "ficha_capturada":
                     // Confirmación del servidor (ya se mostró por P2P)
                     break;
-                    
+
                 case "ficha_en_meta":
                     // Confirmación del servidor (ya se mostró por P2P)
                     break;
-                    
+
+                // ✅ NUEVO: Manejo de bonus de captura
+                case "bonus_disponible":
+                case "bonus_disponibles":
+                    if (json.has("mensaje")) {
+                        System.out.println("\n[BONUS] " + json.get("mensaje").getAsString());
+                    }
+                    break;
+
                 case "partida_ganada":
                     String ganador = json.get("ganadorNombre").getAsString();
                     vista.mostrarGanador(ganador);
                     break;
-                    
+
                 case "penalizacion_tres_dobles":
                     String jugadorPenalizado = json.get("jugadorNombre").getAsString();
                     String mensajePenalizacion = json.get("mensaje").getAsString();
                     vista.mostrarPenalizacionTresDobles(jugadorPenalizado, mensajePenalizacion);
                     break;
-                    
+
                 case "error":
                     String mensaje = json.get("mensaje").getAsString();
                     System.err.println("\n[ERROR] " + mensaje);
                     break;
-                    
+
                 case "ping":
                     responderPong();
                     break;
-                    
+
                 case "listo_confirmado":
                 case "exito":
                     break;
-                    
+
                 default:
                     break;
             }
-            
+
         } catch (Exception e) {
             System.err.println("Error procesando mensaje: " + e.getMessage());
         }

@@ -93,18 +93,23 @@ public class Tablero {
      * Determina el tipo de casilla segun su posicion.
      * Casillas seguras tipicamente cada 12 posiciones + casillas de salida.
      */
+    /**
+    * ✅ CORREGIDO: Casillas seguras correctas del Parchís
+    * - 8 casillas seguras: 8, 13, 25, 30, 42, 47, 59, 64
+    * - 4 casillas de salida (también seguras): 1, 18, 35, 52
+    */  
     private TipoCasilla determinarTipoCasilla(int posicion) {
-        // Casillas de inicio/salida
+        // Casillas de inicio/salida (son seguras pero con tipo especial)
         if (CASILLAS_SALIDA.containsValue(posicion)) {
             return TipoCasilla.INICIO;
         }
-        
-        // Casillas seguras (ejemplo: cada 12 casillas hay una segura)
-        // Ajusta segun tu diseño especifico
-        if (posicion % 12 == 5) {  // Por ejemplo: 5, 17, 29, 41, 53, 65
+
+        // ✅ Casillas seguras (8 en total)
+        if (posicion == 8 || posicion == 13 || posicion == 25 || posicion == 30 ||
+            posicion == 42 || posicion == 47 || posicion == 59 || posicion == 64) {
             return TipoCasilla.SEGURA;
         }
-        
+
         return TipoCasilla.NORMAL;
     }
     
@@ -470,6 +475,54 @@ public class Tablero {
         List<Ficha> fichas = casilla.getFichas();
         return fichas != null ? new ArrayList<>(fichas) : new ArrayList<>();
     }
+    
+    /**
+    * ✅ NUEVO: Verifica si la casilla de salida está bloqueada por fichas propias
+    */
+   public boolean salidaBloqueadaPorPropias(int jugadorId) {
+       Casilla salida = getCasillaSalidaParaJugador(jugadorId);
+       if (salida == null) return false;
+
+       List<Ficha> fichas = salida.getFichas();
+       if (fichas == null || fichas.size() < 2) return false;
+
+       // Contar fichas propias
+       long fichasPropias = fichas.stream()
+           .filter(f -> f.getIdJugador() == jugadorId)
+           .count();
+
+       return fichasPropias >= 2;
+   }
+
+   /**
+    * ✅ NUEVO: Verifica si hay fichas rivales en la salida
+    */
+   public List<Ficha> obtenerFichasRivalesEnSalida(int jugadorId) {
+       Casilla salida = getCasillaSalidaParaJugador(jugadorId);
+       if (salida == null) return new ArrayList<>();
+
+       List<Ficha> fichas = salida.getFichas();
+       if (fichas == null) return new ArrayList<>();
+
+       return fichas.stream()
+           .filter(f -> f.getIdJugador() != jugadorId)
+           .collect(Collectors.toList());
+   }
+
+   /**
+    * ✅ NUEVO: Cuenta fichas propias en la salida
+    */
+   public int contarFichasPropiasEnSalida(int jugadorId) {
+       Casilla salida = getCasillaSalidaParaJugador(jugadorId);
+       if (salida == null) return 0;
+
+       List<Ficha> fichas = salida.getFichas();
+       if (fichas == null) return 0;
+
+       return (int) fichas.stream()
+           .filter(f -> f.getIdJugador() == jugadorId)
+           .count();
+   }
     
     /**
      * Limpia el tablero.

@@ -8,6 +8,7 @@ import modelo.partida.MotorJuego;
 import modelo.servicios.PersistenciaServicio;
 import modelo.servicios.GestorMotores;
 import com.google.gson.JsonObject;
+import java.util.List;
 import java.util.Optional;
 import vista.VistaServidor;
 import modelo.Ficha.Ficha;
@@ -271,33 +272,233 @@ public class CtrlTirarDado {
         ficha.setEstado(modelo.Ficha.EstadoFicha.EN_CASA);
     }
     
-    private ResultadoAutomatico manejarTurnoAutomatico(Partida partida, Jugador jugador, MotorJuego motor,
-                                                        int dado1, int dado2, ClienteHandler cliente) {
-        
-        boolean dado1Es5 = (dado1 == 5);
-        boolean dado2Es5 = (dado2 == 5);
-        boolean sumaEs5 = (dado1 + dado2 == 5);
-        boolean puedesSacar = dado1Es5 || dado2Es5 || sumaEs5;
-        
-        boolean tieneFichasEnCasa = jugador.getFichas().stream()
-            .anyMatch(f -> f.estaEnCasa());
-        
-        boolean tieneFichasEnTablero = jugador.getFichas().stream()
-            .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
-        
-        if (tieneFichasEnCasa && puedesSacar) {
-            return intentarSacarFichaAutomatica(partida, jugador, motor, dado1, dado2, cliente);
-        }
-        
-        if (tieneFichasEnTablero) {
-            return new ResultadoAutomatico(true, 0);
-        }
-        
-        System.out.println("[AUTO] " + jugador.getNombre() + " no puede jugar. Pasando turno...");
-        pasarTurnoAutomaticamente(partida, jugador, cliente);
-        return new ResultadoAutomatico(false, 0);
-    }
+    /**
+    * ✅ ACTUALIZADO: Manejo de turno con reglas completas de salida
+    */
+   private ResultadoAutomatico manejarTurnoAutomatico(Partida partida, Jugador jugador, MotorJuego motor,
+                                                       int dado1, int dado2, ClienteHandler cliente) {
+
+       boolean dado1Es5 = (dado1 == 5);
+       boolean dado2Es5 = (dado2 == 5);
+       boolean sumaEs5 = (dado1 + dado2 == 5);
+       boolean puedesSacar = dado1Es5 || dado2Es5 || sumaEs5;
+
+       boolean tieneFichasEnCasa = jugador.getFichas().stream()
+           .anyMatch(f -> f.estaEnCasa());
+
+       boolean tieneFichasEnTablero = jugador.getFichas().stream()
+           .anyMatch(f -> !f.estaEnCasa() && !f.estaEnMeta());
+
+       Tablero tablero = partida.getTablero();
+
+       // ========================================
+       // VERIFICAR ESTADO DE LA SALIDA
+       // ========================================
+       boolean salidaBloqueadaPorPropias = tablero.salidaBloqueadaPorPropias(jugador.getId());
+       List<Ficha> rivalesEnSalida = tablero.obtenerFichasRivalesEnSalida(jugador.getId());
+       boolean hayRivalesEnSalida = !rivalesEnSalida.isEmpty();
+
+       // ========================================
+       // CASO: Tiene fichas en casa Y puede sacar con 5
+       // ========================================
+       if (tieneFichasEnCasa && puedesSacar) {
+
+           // ----------------------------------------
+           // CASO 3: Hay rivales en salida → Sacar y capturar automáticamente
+           // ----------------------------------------
+           if (hayRivalesEnSalida) {
+               System.out.println("[AUTO] Hay fichas rivales en tu salida. Sacando y capturando...");
+               return sacarYCapturarRivales(partida, jugador, motor, dado1, dado2, rivalesEnSalida, cliente);
+           }
+
+           // ----------------------------------------
+           // CASO 1 y 2: Salida bloqueada por propias → NO sacar automáticamente
+           // ----------------------------------------
+           if (salidaBloqueadaPorPropias) {
+               System.out.println("[INFO] Tu salida está bloqueada por tus propias fichas");
+
+               // Si es suma = 5 (sin ningún 5), el jugador debe elegir
+               if (sumaEs5 && !dado1Es5 && !dado2Es5) {
+                   System.out.println("[INFO] Suma = 5 pero salida bloqueada. Usa tus dados para desbloquear");
+                   return new ResultadoAutomatico(true, 0); // Jugador elige qué hacer
+               }
+
+               // Si tiene un dado 5, el jugador puede mover primero con el otro dado
+               System.out.println("[INFO] Puedes mover con el otro dado para desbloquear y luego sacar con el 5");
+               return new ResultadoAutomatico(true, 0); // Jugador elige qué hacer
+           }
+
+           // ----------------------------------------
+           // CASO NORMAL: Salida libre → Sacar automáticamente
+           // ----------------------------------------
+           return intentarSacarFichaAutomatica(partida, jugador, motor, dado1, dado2, cliente);
+       }
+
+       // ========================================
+       // CASO: Tiene fichas en tablero → Dejar que el jugador elija
+       // ========================================
+       if (tieneFichasEnTablero) {
+           return new ResultadoAutomatico(true, 0);
+       }
+
+       // ========================================
+       // CASO: No puede hacer nada → Pasar turno
+       // ========================================
+       System.out.println("[AUTO] " + jugador.getNombre() + " no puede jugar. Pasando turno...");
+       pasarTurnoAutomaticamente(partida, jugador, cliente);
+       return new ResultadoAutomatico(false, 0);
+   }
     
+   /**
+    * ✅ NUEVO: CASO 3 - Saca ficha(s) y captura rival(es) en la salida
+    */
+   private ResultadoAutomatico sacarYCapturarRivales(Partida partida, Jugador jugador, MotorJuego motor,
+                                                       int dado1, int dado2, List<Ficha> rivalesEnSalida,
+                                                       ClienteHandler cliente) {
+       try {
+           boolean dado1Es5 = (dado1 == 5);
+           boolean dado2Es5 = (dado2 == 5);
+           boolean esDoble5 = (dado1Es5 && dado2Es5);
+
+           // ----------------------------------------
+           // CASO 3.1: Doble 5 con 2 rivales → Sacar 2 fichas, capturar 2
+           // ----------------------------------------
+           if (esDoble5 && rivalesEnSalida.size() >= 2) {
+               System.out.println("[AUTO] Doble 5 con 2 rivales en salida. Sacando 2 fichas y capturando...");
+
+               // Sacar primera ficha
+               Ficha ficha1 = jugador.getFichas().stream()
+                   .filter(f -> f.estaEnCasa())
+                   .findFirst()
+                   .orElse(null);
+
+               if (ficha1 == null) return new ResultadoAutomatico(true, 0);
+
+               MotorJuego.ResultadoSacar resultado1 = motor.sacarFichaDeCasa(
+                   jugador.getId(), ficha1.getId(), 5, 5
+               );
+
+               notificarSacarFicha(partida, jugador, resultado1, cliente);
+
+               // Capturar primer rival
+               Ficha rival1 = rivalesEnSalida.get(0);
+               enviarFichaACasa(rival1);
+
+               int bonusActual1 = motor.getBonusDisponible(jugador.getId());
+               // Agregar bonus manualmente (el motor no lo hace en sacar)
+               notificarCaptura(partida, jugador, rival1.getId(), rival1.getIdJugador(), 20, cliente);
+               System.out.println("[CAPTURA] " + jugador.getNombre() + " capturó ficha rival. +20 bonus");
+
+               // Sacar segunda ficha
+               Ficha ficha2 = jugador.getFichas().stream()
+                   .filter(f -> f.estaEnCasa())
+                   .findFirst()
+                   .orElse(null);
+
+               if (ficha2 != null) {
+                   MotorJuego.ResultadoSacar resultado2 = motor.sacarFichaDeCasa(
+                       jugador.getId(), ficha2.getId(), 5, 0
+                   );
+
+                   notificarSacarFicha(partida, jugador, resultado2, cliente);
+
+                   // Capturar segundo rival
+                   Ficha rival2 = rivalesEnSalida.get(1);
+                   enviarFichaACasa(rival2);
+
+                   notificarCaptura(partida, jugador, rival2.getId(), rival2.getIdJugador(), 20, cliente);
+                   System.out.println("[CAPTURA] " + jugador.getNombre() + " capturó segunda ficha rival. +20 bonus");
+               }
+
+               // Notificar 2 bonos separados disponibles
+               JsonObject notifBonus = new JsonObject();
+               notifBonus.addProperty("tipo", "bonus_disponibles");
+               notifBonus.addProperty("cantidad", 2);
+               notifBonus.addProperty("valorCadaUno", 20);
+               notifBonus.addProperty("mensaje", "Tienes 2 bonos de 20 casillas cada uno");
+
+               ClienteHandler handler = cliente.getServidor().getCliente(jugador.getSessionId());
+               if (handler != null) {
+                   handler.enviarMensaje(notifBonus.toString());
+               }
+
+               return new ResultadoAutomatico(false, 0); // Doble 5, vuelve a tirar
+           }
+
+           // ----------------------------------------
+           // CASO 3.2: Un solo 5 o suma = 5 → Sacar 1 ficha, capturar 1 rival
+           // ----------------------------------------
+           Ficha fichaEnCasa = jugador.getFichas().stream()
+               .filter(f -> f.estaEnCasa())
+               .findFirst()
+               .orElse(null);
+
+           if (fichaEnCasa == null) return new ResultadoAutomatico(true, 0);
+
+           System.out.println("[AUTO] Sacando ficha y capturando rival en salida...");
+
+           MotorJuego.ResultadoSacar resultado = motor.sacarFichaDeCasa(
+               jugador.getId(),
+               fichaEnCasa.getId(),
+               dado1,
+               dado2
+           );
+
+           notificarSacarFicha(partida, jugador, resultado, cliente);
+
+           // Capturar rival
+           Ficha rivalCapturado = rivalesEnSalida.get(0);
+           enviarFichaACasa(rivalCapturado);
+
+           notificarCaptura(partida, jugador, rivalCapturado.getId(), 
+                           rivalCapturado.getIdJugador(), 20, cliente);
+
+           System.out.println("[CAPTURA] " + jugador.getNombre() + " capturó ficha rival. +20 bonus");
+
+           // Verificar si hay dado disponible
+           if (resultado.hayDadoDisponible()) {
+               int dadoDisp = resultado.getDadoDisponible();
+               System.out.println("[AUTO] Ficha sacada y rival capturado. Dado " + dadoDisp + " disponible.");
+
+               // Notificar bonus disponible
+               JsonObject notifBonus = new JsonObject();
+               notifBonus.addProperty("tipo", "bonus_disponible");
+               notifBonus.addProperty("valor", 20);
+               notifBonus.addProperty("mensaje", "Tienes 20 casillas de bonus por captura");
+
+               ClienteHandler handler = cliente.getServidor().getCliente(jugador.getSessionId());
+               if (handler != null) {
+                   handler.enviarMensaje(notifBonus.toString());
+               }
+
+               return new ResultadoAutomatico(true, dadoDisp);
+           } else {
+               // Usó ambos dados, pasar turno
+               System.out.println("[AUTO] Ficha sacada con ambos dados. Pasando turno...");
+
+               try {
+                   Thread.sleep(300);
+               } catch (InterruptedException e) {
+                   Thread.currentThread().interrupt();
+               }
+
+               partida.avanzarTurno();
+
+               Jugador siguienteJugador = partida.getJugadorActual();
+               if (siguienteJugador != null) {
+                   notificarCambioTurno(partida, siguienteJugador, cliente);
+               }
+
+               return new ResultadoAutomatico(false, 0);
+           }
+
+       } catch (Exception e) {
+           System.err.println("[ERROR] Error al sacar y capturar: " + e.getMessage());
+           e.printStackTrace();
+           return new ResultadoAutomatico(true, 0);
+       }
+   }
+   
     private boolean intentarSacarDosFichasConDoble5(Partida partida, Jugador jugador, MotorJuego motor,
                                                      ClienteHandler cliente) {
         try {

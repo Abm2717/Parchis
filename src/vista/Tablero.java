@@ -1,0 +1,159 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package vista;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.Random;
+import java.util.Timer;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
+public class Tablero extends JPanel {
+
+    private Image fondo, tablero;
+    private Image fichaRoja, fichaAzul, fichaVerde, fichaAmarilla;
+    private Image perfilRojo, perfilAzul, perfilVerde, perfilAmarillo;
+
+    /** --- DADOS --- **/
+    private ImageIcon[] caras;
+    private JLabel dado1Label, dado2Label;
+    private int baseX1 = 20, baseY1 = 20;
+    private int baseX2 = 80, baseY2 = 20;
+    private final Random random = new Random();
+
+    public Tablero() {
+
+        setLayout(null); // NECESARIO para colocar paneles / botones / dados
+
+        /** --- IMÁGENES --- */
+        fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
+        tablero = new ImageIcon(getClass().getResource("/vista/recursos/TAB.png")).getImage();
+
+        fichaRoja = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FR.png")).getImage();
+        fichaAzul = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FAZ.png")).getImage();
+        fichaVerde = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FV.png")).getImage();
+        fichaAmarilla = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FA.png")).getImage();
+
+        perfilRojo = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
+        perfilAzul = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
+        perfilVerde = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
+        perfilAmarillo = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
+
+
+
+        JPanel panelJugadorRojo = new JPanel(null);
+        panelJugadorRojo.setBounds(168, 470, 200, 100);
+        panelJugadorRojo.setBackground(new Color(0, 0, 0, 150));
+        add(panelJugadorRojo);
+
+        // Cargar imagenes del dado
+        caras = new ImageIcon[6];
+        for (int i = 0; i < 6; i++) {
+            ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
+            Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
+            caras[i] = new ImageIcon(img);
+        }
+
+        dado1Label = new JLabel(caras[0]);
+        dado2Label = new JLabel(caras[0]);
+
+        dado1Label.setBounds(baseX1, baseY1, 50, 50);
+        dado2Label.setBounds(baseX2, baseY2, 50, 50);
+
+        panelJugadorRojo.add(dado1Label);
+        panelJugadorRojo.add(dado2Label);
+
+
+        /** --- PRINT DE COORDENADAS --- */
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int tabW = 700;
+                int tabH = 700;
+
+                int xTab = (getWidth() - tabW) / 2;
+                int yTab = (getHeight() - tabH) / 2;
+
+                int relX = e.getX() - xTab;
+                int relY = e.getY() - yTab;
+
+                System.out.println("TABLERO → X=" + relX + " Y=" + relY);
+            }
+        });
+
+        setOpaque(false);
+    }
+
+
+
+
+    /** -----------------------------------------------------
+     *                      DIBUJO GENERAL
+     ----------------------------------------------------- */
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        g.drawImage(fondo, 0, 0, getWidth(), getHeight(), this);
+
+        int tabW = 700;
+        int tabH = 700;
+        int x = (getWidth() - tabW) / 2;
+        int y = (getHeight() - tabH) / 2;
+
+        g.drawImage(tablero, x, y, tabW, tabH, this);
+
+        // ----- NOMBRES -----
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 22));
+        g.drawString("Jugador 1", x - 120, y + 40);
+        g.drawString("Jugador 2", x + tabW + 10, y + 40);
+        g.drawString("Jugador 3", x - 130, y + tabH - 165);
+        g.drawString("Jugador 4", x + tabW + 10, y + tabH - 165);
+
+
+        // ----- PERFILES -----
+        g.drawImage(perfilRojo, x - 120, y + 50, 100, 100, this);
+        g.drawImage(perfilAzul, x + tabW + 20, y + 50, 100, 100, this);
+        g.drawImage(perfilVerde, x - 120, y + tabH - 150, 100, 100, this);
+        g.drawImage(perfilAmarillo, x + tabW + 20, y + tabH - 150, 100, 100, this);
+
+        // ----- FICHAS -----
+
+        // ROJAS (ajustadas)
+        g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
+        g.drawImage(fichaRoja, x + 145, y + 510, 60, 60, this);
+        g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
+        g.drawImage(fichaRoja, x + 145, y + 570, 60, 60, this);
+
+        // AZULES
+        g.drawImage(fichaAzul, x + 80, y + 85, 60, 60, this);
+        g.drawImage(fichaAzul, x + 150, y + 85, 60, 60, this);
+        g.drawImage(fichaAzul, x + 80, y + 145, 60, 60, this);
+        g.drawImage(fichaAzul, x + 150, y + 145, 60, 60, this);
+
+        // VERDES
+        g.drawImage(fichaVerde, x + 510, y + 510, 60, 60, this);
+        g.drawImage(fichaVerde, x + 580, y + 510, 60, 60, this);
+        g.drawImage(fichaVerde, x + 510, y + 570, 60, 60, this);
+        g.drawImage(fichaVerde, x + 580, y + 570, 60, 60, this);
+
+        // AMARILLAS
+        g.drawImage(fichaAmarilla, x + 500, y + 76, 60, 60, this);
+        g.drawImage(fichaAmarilla, x + 576, y + 76, 60, 60, this);
+        g.drawImage(fichaAmarilla, x + 500, y + 150, 60, 60, this);
+        g.drawImage(fichaAmarilla, x + 576, y + 150, 60, 60, this);
+    }
+
+ }
+

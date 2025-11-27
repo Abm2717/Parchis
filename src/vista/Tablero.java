@@ -8,6 +8,8 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Random;
@@ -24,16 +26,17 @@ public class Tablero extends JPanel {
     private Image fichaRoja, fichaAzul, fichaVerde, fichaAmarilla;
     private Image perfilRojo, perfilAzul, perfilVerde, perfilAmarillo;
 
-    /** --- DADOS --- **/
     private ImageIcon[] caras;
     private JLabel dado1Label, dado2Label;
     private int baseX1 = 20, baseY1 = 20;
     private int baseX2 = 80, baseY2 = 20;
     private final Random random = new Random();
 
+    private JButton btnSalir;   // ← BOTÓN AGREGADO
+
     public Tablero() {
 
-        setLayout(null); // NECESARIO para colocar paneles / botones / dados
+        setLayout(null);
 
         /** --- IMÁGENES --- */
         fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
@@ -50,31 +53,89 @@ public class Tablero extends JPanel {
         perfilAmarillo = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
 
 
+        /** -----------------------------------------------------
+         *    BOTÓN SALIR (NUEVO)
+         ----------------------------------------------------- */
+        btnSalir = new JButton("Salir");
+        btnSalir.setBounds(20, 20, 90, 35);
 
-        JPanel panelJugadorRojo = new JPanel(null);
-        panelJugadorRojo.setBounds(168, 470, 200, 100);
-        panelJugadorRojo.setBackground(new Color(0, 0, 0, 150));
-        add(panelJugadorRojo);
+        btnSalir.setBackground(new Color(0, 0, 0, 170));
+        btnSalir.setForeground(Color.WHITE);
+        btnSalir.setFocusPainted(false);
+        btnSalir.setFont(new Font("Arial", Font.BOLD, 14));
 
-        // Cargar imagenes del dado
-        caras = new ImageIcon[6];
-        for (int i = 0; i < 6; i++) {
-            ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
-            Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
-            caras[i] = new ImageIcon(img);
-        }
+        btnSalir.addActionListener(e -> System.exit(0));
 
-        dado1Label = new JLabel(caras[0]);
-        dado2Label = new JLabel(caras[0]);
-
-        dado1Label.setBounds(baseX1, baseY1, 50, 50);
-        dado2Label.setBounds(baseX2, baseY2, 50, 50);
-
-        panelJugadorRojo.add(dado1Label);
-        panelJugadorRojo.add(dado2Label);
+        add(btnSalir);
 
 
-        /** --- PRINT DE COORDENADAS --- */
+        /** -----------------------------------------------------
+ *   PANEL DADOS
+ ----------------------------------------------------- */
+JPanel panelNegro = new JPanel(null);
+
+// Tamaño del panel (un poco más alto para el botón)
+int panelW = 200;
+int panelH = 260;
+
+// Posición inicial (izquierda y centrado)
+int xPanel = 30;
+int yPanel = (getHeight() - panelH) / 2;
+
+panelNegro.setBounds(xPanel, yPanel, panelW, panelH);
+panelNegro.setBackground(new Color(0, 0, 0, 150));
+add(panelNegro);
+
+// Dados
+caras = new ImageIcon[6];
+for (int i = 0; i < 6; i++) {
+    ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
+    Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
+    caras[i] = new ImageIcon(img);
+}
+
+dado1Label = new JLabel(caras[0]);
+dado2Label = new JLabel(caras[0]);
+
+dado1Label.setBounds(20, 20, 80, 80);
+dado2Label.setBounds(100, 20, 80, 80);
+
+panelNegro.add(dado1Label);
+panelNegro.add(dado2Label);
+
+/** -----------------------------------------------------
+ *   BOTÓN TIRAR
+ ----------------------------------------------------- */
+JButton btnTirar = new JButton("Tirar");
+btnTirar.setBounds(50, 170, 100, 40);
+btnTirar.setBackground(new Color(30, 30, 30));
+btnTirar.setForeground(Color.WHITE);
+btnTirar.setFocusPainted(false);
+
+// Acción del botón
+btnTirar.addActionListener(e -> {
+    int d1 = random.nextInt(6);
+    int d2 = random.nextInt(6);
+
+    dado1Label.setIcon(caras[d1]);
+    dado2Label.setIcon(caras[d2]);
+});
+
+panelNegro.add(btnTirar);
+
+/** -----------------------------------------------------
+ *   Reacomodar el panel al cambiar tamaño
+ ----------------------------------------------------- */
+addComponentListener(new ComponentAdapter() {
+    @Override
+    public void componentResized(ComponentEvent e) {
+        int y = (getHeight() - panelH) / 2;
+        panelNegro.setBounds(30, y, panelW, panelH);
+    }
+});
+
+
+        /** COORDENADAS */
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -95,10 +156,8 @@ public class Tablero extends JPanel {
     }
 
 
-
-
     /** -----------------------------------------------------
-     *                      DIBUJO GENERAL
+     *     DIBUJAR TABLERO
      ----------------------------------------------------- */
     @Override
     protected void paintComponent(Graphics g) {
@@ -113,7 +172,7 @@ public class Tablero extends JPanel {
 
         g.drawImage(tablero, x, y, tabW, tabH, this);
 
-        // ----- NOMBRES -----
+        // nombres
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 22));
         g.drawString("Jugador 1", x - 120, y + 40);
@@ -121,39 +180,31 @@ public class Tablero extends JPanel {
         g.drawString("Jugador 3", x - 130, y + tabH - 165);
         g.drawString("Jugador 4", x + tabW + 10, y + tabH - 165);
 
-
-        // ----- PERFILES -----
+        // perfiles
         g.drawImage(perfilRojo, x - 120, y + 50, 100, 100, this);
         g.drawImage(perfilAzul, x + tabW + 20, y + 50, 100, 100, this);
         g.drawImage(perfilVerde, x - 120, y + tabH - 150, 100, 100, this);
         g.drawImage(perfilAmarillo, x + tabW + 20, y + tabH - 150, 100, 100, this);
 
-        // ----- FICHAS -----
-
-        // ROJAS (ajustadas)
+        // fichas — esto lo dejé igual
         g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 510, 60, 60, this);
         g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 570, 60, 60, this);
 
-        // AZULES
         g.drawImage(fichaAzul, x + 80, y + 85, 60, 60, this);
         g.drawImage(fichaAzul, x + 150, y + 85, 60, 60, this);
         g.drawImage(fichaAzul, x + 80, y + 145, 60, 60, this);
         g.drawImage(fichaAzul, x + 150, y + 145, 60, 60, this);
 
-        // VERDES
         g.drawImage(fichaVerde, x + 510, y + 510, 60, 60, this);
         g.drawImage(fichaVerde, x + 580, y + 510, 60, 60, this);
         g.drawImage(fichaVerde, x + 510, y + 570, 60, 60, this);
         g.drawImage(fichaVerde, x + 580, y + 570, 60, 60, this);
 
-        // AMARILLAS
         g.drawImage(fichaAmarilla, x + 500, y + 76, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 576, y + 76, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 500, y + 150, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 576, y + 150, 60, 60, this);
     }
-
- }
-
+}

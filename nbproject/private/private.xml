@@ -3,21 +3,30 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/PanelTablero.java</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/controlador/Dispatcher.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/controlador/ClienteControlador.java</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/VentanaJuego.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/DADOS_D5.png</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/FrameTablero.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/pp.png</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/Dado.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/MotorJuego.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/VistaServidor.java</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/EstadoPartida.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/CrearPartida.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/MenuPrincipal.java</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/DADOS_D2.png</file>
-            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/frmTablero.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/pantallaUnirse.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/DADOS_D6.png</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/TAB.png</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/PRUEBA.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/loading.gif</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/TestBonusParchis.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/controlador/ClienteControlador.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/PantallaCarga.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/DADOS_D5.png</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/pp.png</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/PantallaInicio.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/Dado.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/MotorJuego.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/logoP.png</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/Avatares.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/VistaServidor.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/EstadoPartida.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/VistaCliente.java</file>
+            <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/recursos/fondoInicio.jpg</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/vista/Tablero.java</file>
             <file>file:/C:/Users/jpdl2/OneDrive/Documentos/Parchis/Parchis/src/modelo/partida/Partida.java</file>
         </group>

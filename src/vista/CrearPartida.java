@@ -34,13 +34,12 @@ public class CrearPartida extends JFrame {
 
         // Panel central translúcido
         JPanel panel = new JPanel(null);
-        panel.setBackground(new Color(0, 0, 0, 150)); // translúcido
+        panel.setBackground(new Color(0, 0, 0, 160)); // un poco más suave
 
-        int w = 450;
-        int h = 480;
+        int w = 480;
+        int h = 520;
         int x = (screenW - w) / 2;
         int y = (screenH - h) / 2;
-
         panel.setBounds(x, y, w, h);
         layers.add(panel, Integer.valueOf(1));
 
@@ -50,52 +49,58 @@ public class CrearPartida extends JFrame {
         Font labelFont = new Font("Arial", Font.BOLD, 22);
         Font inputFont = new Font("Arial", Font.PLAIN, 20);
 
-        Color grisClaro = new Color(200, 200, 200);
+        Color grisClaro = new Color(220, 220, 220);
         Color negroTrans = new Color(0, 0, 0, 140);
-        Color amarillo = new Color(255, 235, 59);
+
+        // Botón estilo PantallaInicio
+        Color amarillo = new Color(255, 207, 64);
+        Color amarilloHover = new Color(255, 225, 110);
+
+        //------------------------------
+        // TITULO
+        //------------------------------
+        JLabel titulo = new JLabel("Crear Partida");
+        titulo.setBounds(0, 20, w, 45);
+        titulo.setHorizontalAlignment(SwingConstants.CENTER);
+        titulo.setFont(new Font("Arial", Font.BOLD, 34));
+        titulo.setForeground(Color.WHITE);
+        panel.add(titulo);
 
         //------------------------------
         // CAMPOS
         //------------------------------
 
-        JLabel titulo = new JLabel("Crear Partida");
-        titulo.setBounds(0, 20, w, 40);
-        titulo.setHorizontalAlignment(SwingConstants.CENTER);
-        titulo.setFont(new Font("Arial", Font.BOLD, 30));
-        titulo.setForeground(Color.WHITE);
-        panel.add(titulo);
-
         // Nombre jugador
         JLabel lblNombreJugador = new JLabel("Tu Nombre:");
         lblNombreJugador.setFont(labelFont);
         lblNombreJugador.setForeground(grisClaro);
-        lblNombreJugador.setBounds(40, 80, 200, 30);
+        lblNombreJugador.setBounds(40, 85, 200, 30);
         panel.add(lblNombreJugador);
 
         JTextField txtNombreJugador = new JTextField();
-        txtNombreJugador.setBounds(40, 115, 360, 40);
-        txtNombreJugador.setBackground(negroTrans);
+        txtNombreJugador.setBounds(40, 120, 400, 40);
+        txtNombreJugador.setBackground(new Color(0, 0, 0, 100));
         txtNombreJugador.setForeground(Color.WHITE);
         txtNombreJugador.setFont(inputFont);
-        txtNombreJugador.setBorder(null);
+        txtNombreJugador.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 2));
         panel.add(txtNombreJugador);
 
         // Nombre partida
         JLabel lblNombrePartida = new JLabel("Nombre Partida:");
         lblNombrePartida.setFont(labelFont);
         lblNombrePartida.setForeground(grisClaro);
-        lblNombrePartida.setBounds(40, 165, 250, 30);
+        lblNombrePartida.setBounds(40, 170, 250, 30);
         panel.add(lblNombrePartida);
 
         JTextField txtNombrePartida = new JTextField();
-        txtNombrePartida.setBounds(40, 200, 360, 40);
-        txtNombrePartida.setBackground(negroTrans);
+        txtNombrePartida.setBounds(40, 205, 400, 40);
+        txtNombrePartida.setBackground(new Color(0, 0, 0, 100));
         txtNombrePartida.setForeground(Color.WHITE);
         txtNombrePartida.setFont(inputFont);
-        txtNombrePartida.setBorder(null);
+        txtNombrePartida.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 2));
         panel.add(txtNombrePartida);
 
-        // Numero de jugadores
+        // Jugadores
         JLabel lblJugadores = new JLabel("Jugadores:");
         lblJugadores.setFont(labelFont);
         lblJugadores.setForeground(grisClaro);
@@ -104,13 +109,14 @@ public class CrearPartida extends JFrame {
 
         String[] numJugadores = {"2", "3", "4"};
         JComboBox<String> comboJugadores = new JComboBox<>(numJugadores);
-        comboJugadores.setBounds(220, 255, 80, 35);
-        comboJugadores.setBackground(negroTrans);
+        comboJugadores.setBounds(200, 255, 80, 35);
+        comboJugadores.setBackground(new Color(0, 0, 0, 120));
         comboJugadores.setForeground(Color.WHITE);
         comboJugadores.setFont(inputFont);
+        comboJugadores.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 2));
         panel.add(comboJugadores);
 
-        // Puerto del servidor
+        // Puerto
         JLabel lblPuerto = new JLabel("Puerto Servidor:");
         lblPuerto.setFont(labelFont);
         lblPuerto.setForeground(grisClaro);
@@ -119,18 +125,43 @@ public class CrearPartida extends JFrame {
 
         JTextField txtPuerto = new JTextField("");
         txtPuerto.setBounds(40, 340, 150, 40);
-        txtPuerto.setBackground(negroTrans);
+        txtPuerto.setBackground(new Color(0, 0, 0, 100));
         txtPuerto.setForeground(Color.WHITE);
         txtPuerto.setFont(inputFont);
-        txtPuerto.setBorder(null);
+        txtPuerto.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 2));
         panel.add(txtPuerto);
 
-        // Botón Aceptar
+        //------------------------------
+        // BOTÓN ACEPTAR ESTILO "PANTALLA INICIO"
+        //------------------------------
         JButton btnAceptar = new JButton("Aceptar");
-        btnAceptar.setBounds(120, 400, 200, 45);
+        btnAceptar.setBounds(140, 410, 200, 50);
         btnAceptar.setBackground(amarillo);
-        btnAceptar.setFont(new Font("Arial", Font.BOLD, 22));
+        btnAceptar.setForeground(Color.BLACK);
+        btnAceptar.setFont(new Font("Arial", Font.BOLD, 24));
         btnAceptar.setFocusPainted(false);
+        btnAceptar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        // Borde con relieve 3D
+        btnAceptar.setBorder(BorderFactory.createBevelBorder(
+                javax.swing.border.BevelBorder.RAISED,
+                Color.WHITE,              // luz
+                new Color(200, 150, 0)    // sombra
+        ));
+
+        // Hover
+        btnAceptar.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btnAceptar.setBackground(amarilloHover);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btnAceptar.setBackground(amarillo);
+            }
+        });
+
         panel.add(btnAceptar);
 
         setVisible(true);

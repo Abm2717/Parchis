@@ -6,6 +6,7 @@ package vista;
 
 import javax.swing.*;
 import java.awt.*;
+import javax.swing.border.Border;
 
 public class PantallaInicio extends JFrame {
 
@@ -33,9 +34,7 @@ public class PantallaInicio extends JFrame {
         JLabel fondo = new JLabel(new ImageIcon(fondoEscalado));
         fondo.setBounds(0, 0, screenW, screenH);
 
-        layers.add(fondo, Integer.valueOf(0)); // capa baja
-
-
+        layers.add(fondo, Integer.valueOf(0));
 
         // -------------------------
         //  PANEL CENTRAL (CAPA 1)
@@ -43,43 +42,105 @@ public class PantallaInicio extends JFrame {
         JPanel panelCentro = new JPanel(null);
         panelCentro.setOpaque(false);
 
-        int w = 400;
-        int h = 500;
+        int w = 450;
+        int h = 600;
         int x = (screenW - w) / 2;
         int y = (screenH - h) / 2;
 
         panelCentro.setBounds(x, y, w, h);
 
-        // -------- LOGO --------
+ 
         ImageIcon logoOriginal = new ImageIcon(getClass().getResource("/vista/recursos/logoP.png"));
-        Image logoImg = logoOriginal.getImage().getScaledInstance(220, 220, Image.SCALE_SMOOTH);
+        Image logoImg = logoOriginal.getImage().getScaledInstance(300, 300, Image.SCALE_SMOOTH);
 
         JLabel logo = new JLabel(new ImageIcon(logoImg));
-        logo.setBounds(90, 10, 220, 220);
+        logo.setBounds((w - 300) / 2, 0, 300, 300);
         panelCentro.add(logo);
 
-        // -------- TEXTO --------
+        // -------- TITULO --------
         JLabel titulo = new JLabel("Parchis Royale");
-        titulo.setBounds(0, 240, 400, 40);
+        titulo.setBounds(0, 310, w, 50);
         titulo.setHorizontalAlignment(SwingConstants.CENTER);
-        titulo.setFont(new Font("Arial", Font.BOLD, 32));
+        titulo.setFont(new Font("Arial", Font.BOLD, 38));
         titulo.setForeground(Color.WHITE);
         panelCentro.add(titulo);
 
-        // -------- BOTÓN CREAR --------
+        // ===============================
+        //   ESTILO PERSONALIZADO BOTONES
+        // ===============================
+        Color amarillo = new Color(255, 207, 64);
+        Color amarilloHover = new Color(255, 225, 110);
+
+        Font fontBoton = new Font("Arial", Font.BOLD, 22);
+
         JButton btnCrear = new JButton("Crear Sala");
-        btnCrear.setBounds(90, 300, 220, 50);
-        panelCentro.add(btnCrear);
-
-        // -------- BOTÓN UNIRSE --------
         JButton btnUnirse = new JButton("Unirse");
-        btnUnirse.setBounds(90, 370, 220, 50);
-        panelCentro.add(btnUnirse);
 
-        // Se agrega el panel en la capa superior
+        JButton[] botones = { btnCrear, btnUnirse };
+
+        int posY = 380;
+
+        for (JButton btn : botones) {
+            btn.setBounds((w - 260) / 2, posY, 260, 55);
+            btn.setFont(fontBoton);
+            btn.setFocusable(false);
+            btn.setBackground(amarillo);
+            btn.setForeground(Color.BLACK);
+
+            // --- Efecto relieve clásico (3D) ---
+            btn.setBorder(BorderFactory.createBevelBorder(
+                javax.swing.border.BevelBorder.RAISED,
+                Color.WHITE,             // luz arriba
+                new Color(200, 150, 0)   // sombra abajo
+            ));
+
+            // Mejor interacción visual
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setOpaque(true);
+            btn.setContentAreaFilled(true);
+            btn.setFocusPainted(false);
+
+            // --- Hover: más claro ---
+            btn.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                    btn.setBackground(amarilloHover);
+                }
+
+                @Override
+                public void mouseExited(java.awt.event.MouseEvent evt) {
+                    btn.setBackground(amarillo);
+                }
+            });
+
+            panelCentro.add(btn);
+            posY += 80;
+        }
+
         layers.add(panelCentro, Integer.valueOf(1));
 
         setVisible(true);
+    }
+
+    // CLASE PARA BORDES REDONDEADOS
+    class RoundedBorder implements Border {
+        private int radius;
+
+        RoundedBorder(int r) {
+            radius = r;
+        }
+
+        public Insets getBorderInsets(Component c) {
+            return new Insets(radius+1, radius+1, radius+2, radius);
+        }
+
+        public boolean isBorderOpaque() {
+            return false;
+        }
+
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            g.drawRoundRect(x, y, width - 1, height - 1, radius, radius);
+        }
     }
 
     public static void main(String[] args) {

@@ -10,6 +10,7 @@ import java.awt.*;
 import javax.swing.*;
 import java.awt.*;
 
+
 public class pantallaUnirse extends JFrame {
 
     private Image backgroundImage;
@@ -19,7 +20,6 @@ public class pantallaUnirse extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
-        setResizable(false);
 
         // Cargar imagen de fondo
         backgroundImage = new ImageIcon(getClass().getResource("/vista/recursos/fondoInicio.jpg")).getImage();
@@ -32,73 +32,124 @@ public class pantallaUnirse extends JFrame {
                 g.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
             }
         };
-
         mainPanel.setLayout(null);
-        add(mainPanel);
+        setContentPane(mainPanel);
 
-        // Panel translúcido centrado
-        JPanel panel = new JPanel();
-        panel.setLayout(null);
-        panel.setBounds((900 - 400) / 2, (600 - 280) / 2, 400, 280);
-        panel.setBackground(new Color(0, 0, 0, 120)); // negro translúcido
+        // Dimensiones de pantalla
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int screenW = screen.width;
+        int screenH = screen.height;
+
+        // Panel translúcido centrado 
+        int w = 480;
+        int h = 320;
+        int x = (screenW - w) / 2;
+        int y = (screenH - h) / 2;
+
+        JPanel panel = new JPanel(null);
+        panel.setBounds(x, y, w, h);
+        panel.setBackground(new Color(0, 0, 0, 140)); // translúcido
+        panel.setBorder(BorderFactory.createLineBorder(new Color(60, 60, 60), 2));
         mainPanel.add(panel);
+
+        // ======= ESTILOS REUTILIZABLES =======
+        Font labelFont = new Font("Arial", Font.BOLD, 18);
+        Font inputFont = new Font("Arial", Font.PLAIN, 16);
+
+        Color grisClaro = new Color(220, 220, 220);
+        Color inputBg = new Color(25, 25, 25); // sin alpha para evitar recuadros grises
+
+        // Colores botón (igual que PantallaInicio)
+        Color amarillo = new Color(255, 207, 64);
+        Color amarilloHover = new Color(255, 225, 110);
 
         // ======= LABELS =======
         JLabel lblNombre = new JLabel("Nombre:");
         lblNombre.setForeground(Color.WHITE);
-        lblNombre.setFont(new Font("Arial", Font.PLAIN, 18));
+        lblNombre.setFont(labelFont);
         lblNombre.setBounds(40, 40, 150, 30);
         panel.add(lblNombre);
 
         JLabel lblIP = new JLabel("IP del Servidor:");
         lblIP.setForeground(Color.WHITE);
-        lblIP.setFont(new Font("Arial", Font.PLAIN, 18));
-        lblIP.setBounds(40, 90, 150, 30);
+        lblIP.setFont(labelFont);
+        lblIP.setBounds(40, 95, 150, 30);
         panel.add(lblIP);
 
         JLabel lblPuerto = new JLabel("Puerto:");
         lblPuerto.setForeground(Color.WHITE);
-        lblPuerto.setFont(new Font("Arial", Font.PLAIN, 18));
-        lblPuerto.setBounds(40, 140, 150, 30);
+        lblPuerto.setFont(labelFont);
+        lblPuerto.setBounds(40, 150, 150, 30);
         panel.add(lblPuerto);
 
         // ======= INPUTS =======
         JTextField txtNombre = new JTextField();
-        txtNombre.setBounds(190, 40, 160, 30);
-        estiloInput(txtNombre);
+        txtNombre.setBounds(200, 40, 220, 30);
+        estiloInput(txtNombre, inputBg, inputFont);
         panel.add(txtNombre);
 
         JTextField txtIP = new JTextField();
-        txtIP.setBounds(190, 90, 160, 30);
-        estiloInput(txtIP);
+        txtIP.setBounds(200, 95, 220, 30);
+        estiloInput(txtIP, inputBg, inputFont);
         panel.add(txtIP);
 
         JTextField txtPuerto = new JTextField();
-        txtPuerto.setBounds(190, 140, 160, 30);
-        estiloInput(txtPuerto);
+        txtPuerto.setBounds(200, 150, 220, 30);
+        estiloInput(txtPuerto, inputBg, inputFont);
         panel.add(txtPuerto);
 
         // ======= BOTÓN ACEPTAR =======
         JButton btnAceptar = new JButton("Aceptar");
-        btnAceptar.setBounds(130, 200, 140, 40);
-        btnAceptar.setBackground(new Color(255, 215, 0));
+        btnAceptar.setBounds((w - 260) / 2, 210, 260, 55);
+        btnAceptar.setFont(new Font("Arial", Font.BOLD, 22));
+        btnAceptar.setFocusable(false);
+        btnAceptar.setBackground(amarillo);
         btnAceptar.setForeground(Color.BLACK);
-        btnAceptar.setFont(new Font("Arial", Font.BOLD, 18));
+        btnAceptar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnAceptar.setOpaque(true);
+        btnAceptar.setContentAreaFilled(true);
         btnAceptar.setFocusPainted(false);
-        btnAceptar.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY, 2));
+
+        // Borde con relieve clásico (Bevel)
+        btnAceptar.setBorder(BorderFactory.createBevelBorder(
+                javax.swing.border.BevelBorder.RAISED,
+                Color.WHITE,             // luz arriba
+                new Color(200, 150, 0)   // sombra abajo
+        ));
+
+        // Hover
+        btnAceptar.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btnAceptar.setBackground(amarilloHover);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btnAceptar.setBackground(amarillo);
+            }
+        });
+
         panel.add(btnAceptar);
+
+        // Mostrar ventana
+        setVisible(true);
     }
 
-    // Reusar estilo del input
-    private void estiloInput(JTextField txt) {
-        txt.setBackground(new Color(30, 30, 30, 180));
+    // Método reutilizable para inputs (opacos para evitar artefactos)
+    private void estiloInput(JTextField txt, Color bg, Font font) {
+        txt.setOpaque(true);
+        txt.setBackground(bg);
         txt.setForeground(Color.WHITE);
-        txt.setFont(new Font("Arial", Font.PLAIN, 16));
+        txt.setFont(font);
         txt.setCaretColor(Color.WHITE);
-        txt.setBorder(BorderFactory.createLineBorder(new Color(80, 80, 80), 1));
+        txt.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(90, 90, 90), 1),
+                BorderFactory.createEmptyBorder(2, 6, 2, 6)
+        ));
     }
 
     public static void main(String[] args) {
-        new pantallaUnirse().setVisible(true);
+        SwingUtilities.invokeLater(() -> new pantallaUnirse().setVisible(true));
     }
 }

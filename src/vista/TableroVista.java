@@ -20,7 +20,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-public class Tablero extends JPanel {
+public class TableroVista extends JPanel {
 
     private Image fondo, tablero;
     private Image fichaRoja, fichaAzul, fichaVerde, fichaAmarilla;
@@ -34,7 +34,7 @@ public class Tablero extends JPanel {
 
     private JButton btnSalir;   // ← BOTÓN AGREGADO
 
-    public Tablero() {
+    public TableroVista() {
 
         setLayout(null);
 
@@ -70,69 +70,69 @@ public class Tablero extends JPanel {
 
 
         /** -----------------------------------------------------
- *   PANEL DADOS
- ----------------------------------------------------- */
-JPanel panelNegro = new JPanel(null);
+        *   PANEL DADOS
+        ----------------------------------------------------- */
+       JPanel panelNegro = new JPanel(null);
 
-// Tamaño del panel (un poco más alto para el botón)
-int panelW = 200;
-int panelH = 260;
+       // Tamaño del panel (un poco más alto para el botón)
+       int panelW = 200;
+       int panelH = 260;
 
-// Posición inicial (izquierda y centrado)
-int xPanel = 30;
-int yPanel = (getHeight() - panelH) / 2;
+       // Posición inicial (izquierda y centrado)
+       int xPanel = 30;
+       int yPanel = (getHeight() - panelH) / 2;
 
-panelNegro.setBounds(xPanel, yPanel, panelW, panelH);
-panelNegro.setBackground(new Color(0, 0, 0, 150));
-add(panelNegro);
+       panelNegro.setBounds(xPanel, yPanel, panelW, panelH);
+       panelNegro.setBackground(new Color(0, 0, 0, 150));
+       add(panelNegro);
 
-// Dados
-caras = new ImageIcon[6];
-for (int i = 0; i < 6; i++) {
-    ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
-    Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
-    caras[i] = new ImageIcon(img);
-}
+       // Dados
+       caras = new ImageIcon[6];
+       for (int i = 0; i < 6; i++) {
+           ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
+           Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
+           caras[i] = new ImageIcon(img);
+       }
 
-dado1Label = new JLabel(caras[0]);
-dado2Label = new JLabel(caras[0]);
+        dado1Label = new JLabel(caras[0]);
+        dado2Label = new JLabel(caras[0]);
 
-dado1Label.setBounds(20, 20, 80, 80);
-dado2Label.setBounds(100, 20, 80, 80);
+        dado1Label.setBounds(20, 20, 80, 80);
+        dado2Label.setBounds(100, 20, 80, 80);
 
-panelNegro.add(dado1Label);
-panelNegro.add(dado2Label);
+        panelNegro.add(dado1Label);
+        panelNegro.add(dado2Label);
 
-/** -----------------------------------------------------
- *   BOTÓN TIRAR
- ----------------------------------------------------- */
-JButton btnTirar = new JButton("Tirar");
-btnTirar.setBounds(50, 170, 100, 40);
-btnTirar.setBackground(new Color(30, 30, 30));
-btnTirar.setForeground(Color.WHITE);
-btnTirar.setFocusPainted(false);
+        /** -----------------------------------------------------
+         *   BOTÓN TIRAR
+         ----------------------------------------------------- */
+        JButton btnTirar = new JButton("Tirar");
+        btnTirar.setBounds(50, 170, 100, 40);
+        btnTirar.setBackground(new Color(30, 30, 30));
+        btnTirar.setForeground(Color.WHITE);
+        btnTirar.setFocusPainted(false);
 
-// Acción del botón
-btnTirar.addActionListener(e -> {
-    int d1 = random.nextInt(6);
-    int d2 = random.nextInt(6);
+        // Acción del botón
+        btnTirar.addActionListener(e -> {
+            int d1 = random.nextInt(6);
+            int d2 = random.nextInt(6);
 
-    dado1Label.setIcon(caras[d1]);
-    dado2Label.setIcon(caras[d2]);
-});
+            dado1Label.setIcon(caras[d1]);
+            dado2Label.setIcon(caras[d2]);
+        });
 
-panelNegro.add(btnTirar);
+        panelNegro.add(btnTirar);
 
-/** -----------------------------------------------------
- *   Reacomodar el panel al cambiar tamaño
- ----------------------------------------------------- */
-addComponentListener(new ComponentAdapter() {
-    @Override
-    public void componentResized(ComponentEvent e) {
-        int y = (getHeight() - panelH) / 2;
-        panelNegro.setBounds(30, y, panelW, panelH);
-    }
-});
+        /** -----------------------------------------------------
+         *   Reacomodar el panel al cambiar tamaño
+         ----------------------------------------------------- */
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                int y = (getHeight() - panelH) / 2;
+                panelNegro.setBounds(30, y, panelW, panelH);
+            }
+        });
 
 
         /** COORDENADAS */

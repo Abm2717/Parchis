@@ -1,11 +1,9 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package vista;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import javax.swing.border.Border;
 
 public class PantallaInicio extends JFrame {
@@ -117,6 +115,30 @@ public class PantallaInicio extends JFrame {
             posY += 80;
         }
 
+        // ===============================
+        //   EVENTOS DE LOS BOTONES
+        // ===============================
+        
+        // Evento: Crear Sala
+        btnCrear.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                CrearPartida crearPartida = new CrearPartida();
+                crearPartida.setVisible(true);
+                dispose();
+            }
+        });
+
+        // Evento: Unirse
+        btnUnirse.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                PantallaUnirse pantallaUnirse = new PantallaUnirse();
+                pantallaUnirse.setVisible(true);
+                dispose();
+            }
+        });
+
         layers.add(panelCentro, Integer.valueOf(1));
 
         setVisible(true);
@@ -144,6 +166,11 @@ public class PantallaInicio extends JFrame {
     }
 
     public static void main(String[] args) {
-        new PantallaInicio();
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new PantallaInicio();
+            }
+        });
     }
 }

@@ -17,7 +17,7 @@ public class VentanaJuego extends JFrame {
         setSize(screen.width, screen.height);
         setLocation(0, 0);
 
-        setContentPane(new Tablero());
+        setContentPane(new TableroVista());
         setDefaultCloseOperation(EXIT_ON_CLOSE);
     }
 

@@ -136,6 +136,12 @@ public class VistaCliente {
         }
     }
     
+    public void actualizarContadorJugadores(int actual, int max) {
+       // Este método se llamará desde ClienteControlador
+        // Por ahora puede estar vacío o mostrar en consola
+        System.out.println("[VISTA] Jugadores: " + actual + "/" + max);
+    }
+    
     private void listarYUnirse() {
         System.out.println("\nListando partidas...");
         controlador.listarPartidas();

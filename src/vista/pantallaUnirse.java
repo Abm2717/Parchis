@@ -1,21 +1,18 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package vista;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-import javax.swing.*;
-import java.awt.*;
-
-
-public class pantallaUnirse extends JFrame {
+public class PantallaUnirse extends JFrame {
 
     private Image backgroundImage;
+    private JTextField txtNombre;
+    private JTextField txtIP;
+    private JTextField txtPuerto;
 
-    public pantallaUnirse() {
+    public PantallaUnirse() {
         setTitle("Unirse a Partida");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -48,7 +45,7 @@ public class pantallaUnirse extends JFrame {
 
         JPanel panel = new JPanel(null);
         panel.setBounds(x, y, w, h);
-        panel.setBackground(new Color(0, 0, 0, 140)); // translúcido
+        panel.setBackground(new Color(0, 0, 0, 140));
         panel.setBorder(BorderFactory.createLineBorder(new Color(60, 60, 60), 2));
         mainPanel.add(panel);
 
@@ -57,9 +54,8 @@ public class pantallaUnirse extends JFrame {
         Font inputFont = new Font("Arial", Font.PLAIN, 16);
 
         Color grisClaro = new Color(220, 220, 220);
-        Color inputBg = new Color(25, 25, 25); // sin alpha para evitar recuadros grises
+        Color inputBg = new Color(25, 25, 25);
 
-        // Colores botón (igual que PantallaInicio)
         Color amarillo = new Color(255, 207, 64);
         Color amarilloHover = new Color(255, 225, 110);
 
@@ -83,17 +79,17 @@ public class pantallaUnirse extends JFrame {
         panel.add(lblPuerto);
 
         // ======= INPUTS =======
-        JTextField txtNombre = new JTextField();
+        txtNombre = new JTextField();
         txtNombre.setBounds(200, 40, 220, 30);
         estiloInput(txtNombre, inputBg, inputFont);
         panel.add(txtNombre);
 
-        JTextField txtIP = new JTextField();
+        txtIP = new JTextField("localhost");
         txtIP.setBounds(200, 95, 220, 30);
         estiloInput(txtIP, inputBg, inputFont);
         panel.add(txtIP);
 
-        JTextField txtPuerto = new JTextField();
+        txtPuerto = new JTextField("8000");
         txtPuerto.setBounds(200, 150, 220, 30);
         estiloInput(txtPuerto, inputBg, inputFont);
         panel.add(txtPuerto);
@@ -110,11 +106,10 @@ public class pantallaUnirse extends JFrame {
         btnAceptar.setContentAreaFilled(true);
         btnAceptar.setFocusPainted(false);
 
-        // Borde con relieve clásico (Bevel)
         btnAceptar.setBorder(BorderFactory.createBevelBorder(
                 javax.swing.border.BevelBorder.RAISED,
-                Color.WHITE,             // luz arriba
-                new Color(200, 150, 0)   // sombra abajo
+                Color.WHITE,
+                new Color(200, 150, 0)
         ));
 
         // Hover
@@ -130,13 +125,52 @@ public class pantallaUnirse extends JFrame {
             }
         });
 
+        // ✅ EVENTO DEL BOTÓN
+        btnAceptar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                validarYContinuar();
+            }
+        });
+
         panel.add(btnAceptar);
 
-        // Mostrar ventana
         setVisible(true);
     }
 
-    // Método reutilizable para inputs (opacos para evitar artefactos)
+    
+    /**
+    * Valida los campos y abre la pantalla de avatares
+    */
+    private void validarYContinuar() {
+       // Validación de campos...
+       String nombre = txtNombre.getText().trim();
+       String ip = txtIP.getText().trim();
+       String puertoStr = txtPuerto.getText().trim();
+
+       // ... validaciones ...
+
+       int puerto;
+       try {
+           puerto = Integer.parseInt(puertoStr);
+           if (puerto < 1024 || puerto > 65535) {
+               throw new NumberFormatException();
+           }
+       } catch (NumberFormatException ex) {
+           JOptionPane.showMessageDialog(this,
+               "Puerto inválido. Debe ser un número entre 1024 y 65535",
+               "Error de puerto",
+               JOptionPane.ERROR_MESSAGE);
+           return;
+       }
+
+       // ✅ Abrir Avatares con constructor de UNIRSE
+       Avatares avatares = new Avatares(nombre, ip, puerto);
+       avatares.setVisible(true);
+
+       dispose();
+    }
+
     private void estiloInput(JTextField txt, Color bg, Font font) {
         txt.setOpaque(true);
         txt.setBackground(bg);
@@ -150,6 +184,11 @@ public class pantallaUnirse extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new pantallaUnirse().setVisible(true));
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new PantallaUnirse();
+            }
+        });
     }
 }

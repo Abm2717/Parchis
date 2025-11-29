@@ -1,13 +1,19 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package vista;
 
+import controlador.ClienteControlador;
+import controlador.servidor.ServidorCentral;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
 
 public class CrearPartida extends JFrame {
+    
+    private JTextField txtNombreJugador;
+    private JTextField txtNombrePartida;
+    private JComboBox<String> comboJugadores;
+    private JTextField txtPuerto;
 
     public CrearPartida() {
 
@@ -77,7 +83,7 @@ public class CrearPartida extends JFrame {
         lblNombreJugador.setBounds(40, 85, 200, 30);
         panel.add(lblNombreJugador);
 
-        JTextField txtNombreJugador = new JTextField();
+        txtNombreJugador = new JTextField();
         txtNombreJugador.setBounds(40, 120, 400, 40);
         txtNombreJugador.setBackground(new Color(0, 0, 0, 100));
         txtNombreJugador.setForeground(Color.WHITE);
@@ -92,7 +98,7 @@ public class CrearPartida extends JFrame {
         lblNombrePartida.setBounds(40, 170, 250, 30);
         panel.add(lblNombrePartida);
 
-        JTextField txtNombrePartida = new JTextField();
+        txtNombrePartida = new JTextField();
         txtNombrePartida.setBounds(40, 205, 400, 40);
         txtNombrePartida.setBackground(new Color(0, 0, 0, 100));
         txtNombrePartida.setForeground(Color.WHITE);
@@ -108,7 +114,7 @@ public class CrearPartida extends JFrame {
         panel.add(lblJugadores);
 
         String[] numJugadores = {"2", "3", "4"};
-        JComboBox<String> comboJugadores = new JComboBox<>(numJugadores);
+        comboJugadores = new JComboBox<>(numJugadores);
         comboJugadores.setBounds(200, 255, 80, 35);
         comboJugadores.setBackground(new Color(0, 0, 0, 120));
         comboJugadores.setForeground(Color.WHITE);
@@ -123,7 +129,7 @@ public class CrearPartida extends JFrame {
         lblPuerto.setBounds(40, 305, 250, 30);
         panel.add(lblPuerto);
 
-        JTextField txtPuerto = new JTextField("");
+        txtPuerto = new JTextField("8000");
         txtPuerto.setBounds(40, 340, 150, 40);
         txtPuerto.setBackground(new Color(0, 0, 0, 100));
         txtPuerto.setForeground(Color.WHITE);
@@ -162,12 +168,76 @@ public class CrearPartida extends JFrame {
             }
         });
 
+        // ===============================
+        //   EVENTO DEL BOTÓN ACEPTAR
+        // ===============================
+        btnAceptar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                crearYUnirseAPartida();
+            }
+        });
+
         panel.add(btnAceptar);
 
         setVisible(true);
     }
 
+    /**
+    * Abre la pantalla de selección de avatares
+    */
+   private void crearYUnirseAPartida() {
+       // 1. VALIDAR CAMPOS
+       String nombreJugador = txtNombreJugador.getText().trim();
+       String nombrePartida = txtNombrePartida.getText().trim();
+       String puertoStr = txtPuerto.getText().trim();
+
+       if (nombreJugador.isEmpty()) {
+           JOptionPane.showMessageDialog(this, 
+               "Por favor ingresa tu nombre", 
+               "Campo requerido", 
+               JOptionPane.WARNING_MESSAGE);
+           return;
+       }
+
+       if (nombrePartida.isEmpty()) {
+           JOptionPane.showMessageDialog(this, 
+               "Por favor ingresa el nombre de la partida", 
+               "Campo requerido", 
+               JOptionPane.WARNING_MESSAGE);
+           return;
+       }
+
+       int puerto;
+       try {
+           puerto = Integer.parseInt(puertoStr);
+           if (puerto < 1024 || puerto > 65535) {
+               throw new NumberFormatException();
+           }
+       } catch (NumberFormatException ex) {
+           JOptionPane.showMessageDialog(this, 
+               "Puerto inválido. Debe ser un número entre 1024 y 65535", 
+               "Error de puerto", 
+               JOptionPane.ERROR_MESSAGE);
+           return;
+       }
+
+       int maxJugadores = Integer.parseInt((String) comboJugadores.getSelectedItem());
+
+       // 2. ABRIR PANTALLA DE AVATARES (pasando los datos)
+       Avatares avatares = new Avatares(nombreJugador, nombrePartida, maxJugadores, puerto);
+       avatares.setVisible(true);
+
+       // 3. CERRAR ESTA VENTANA
+       dispose();
+   }
+
     public static void main(String[] args) {
-        new CrearPartida();
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new CrearPartida();
+            }
+        });
     }
 }

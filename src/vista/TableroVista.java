@@ -185,7 +185,8 @@ public class TableroVista extends JPanel {
         g.drawImage(perfilAmarillo, x + tabW + 20, y + tabH - 150, 100, 100, this);
 
         // fichas
-        g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
+        //g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
+        g.drawImage(fichaRoja, x + 130, y + 425, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 510, 60, 60, this);
         g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 570, 60, 60, this);

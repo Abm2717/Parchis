@@ -7,7 +7,6 @@ import com.google.gson.JsonArray;
 import controlador.peer.ClientePeer;
 import java.io.*;
 import java.net.Socket;
-import vista.PantallaCarga;
 
 /**
  * ✅ ACTUALIZADO: Comunicación P2P real
@@ -17,7 +16,7 @@ import vista.PantallaCarga;
 public class ClienteControlador {
     
     private final VistaCliente vista;
-    private PantallaCarga vistaCarga;
+    private vista.PantallaCarga vistaCarga;
     private Socket socket;
     private BufferedReader entrada;
     private PrintWriter salida;
@@ -38,8 +37,6 @@ public class ClienteControlador {
     private ClientePeer clientePeer;
     private int miPuertoPeer;
     
-    
-    
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
         this.conectado = false;
@@ -52,9 +49,13 @@ public class ClienteControlador {
         this.miPuertoPeer = -1;
     }
     
-    public void setVistaCarga(PantallaCarga vistaCarga) {
-        this.vistaCarga = vistaCarga;
+    /**
+    * ✅ NUEVO: Conecta la vista de carga para recibir actualizaciones
+    */
+    public void setVistaCarga(vista.PantallaCarga vistaCarga) {
+       this.vistaCarga = vistaCarga;
     }
+    
     public boolean conectar(String ip, int puerto) {
         try {
             miPuertoPeer = asignarPuertoP2PAutomatico();
@@ -196,11 +197,8 @@ public class ClienteControlador {
                     String nombre = json.get("nombre").getAsString();
                     int total = json.get("totalJugadores").getAsInt();
                     System.out.println("\n[INFO] " + nombre + " se unio a la partida (" + total + " jugadores)");
-                    if (vistaCarga != null) {
-                        vistaCarga.actualizarJugadores(total);
-                    }
                     break;
-                  
+
                 case "jugador_listo":
                     String nombreListo = json.get("nombre").getAsString();
                     System.out.println("[INFO] " + nombreListo + " esta listo");
@@ -211,6 +209,12 @@ public class ClienteControlador {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
+                    
+                    // ✅ Notificar a PantallaCarga que inicie el juego
+                    if (vistaCarga != null) {
+                        vistaCarga.iniciarPartida();
+                    }
+
 
                     new Thread(() -> {
                         try {

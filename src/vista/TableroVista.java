@@ -1,24 +1,22 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package vista;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Random;
-import java.util.Timer;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 public class TableroVista extends JPanel {
 
@@ -32,7 +30,7 @@ public class TableroVista extends JPanel {
     private int baseX2 = 80, baseY2 = 20;
     private final Random random = new Random();
 
-    private JButton btnSalir;   // ← BOTÓN AGREGADO
+    private JButton btnSalir;
 
     public TableroVista() {
 
@@ -54,7 +52,7 @@ public class TableroVista extends JPanel {
 
 
         /** -----------------------------------------------------
-         *    BOTÓN SALIR (NUEVO)
+         *    BOTÓN SALIR
          ----------------------------------------------------- */
         btnSalir = new JButton("Salir");
         btnSalir.setBounds(20, 20, 90, 35);
@@ -74,7 +72,7 @@ public class TableroVista extends JPanel {
         ----------------------------------------------------- */
        JPanel panelNegro = new JPanel(null);
 
-       // Tamaño del panel (un poco más alto para el botón)
+       // Tamaño del panel
        int panelW = 200;
        int panelH = 260;
 
@@ -186,7 +184,7 @@ public class TableroVista extends JPanel {
         g.drawImage(perfilVerde, x - 120, y + tabH - 150, 100, 100, this);
         g.drawImage(perfilAmarillo, x + tabW + 20, y + tabH - 150, 100, 100, this);
 
-        // fichas — esto lo dejé igual
+        // fichas
         g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 510, 60, 60, this);
         g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
@@ -206,5 +204,28 @@ public class TableroVista extends JPanel {
         g.drawImage(fichaAmarilla, x + 576, y + 76, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 500, y + 150, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 576, y + 150, 60, 60, this);
+    }
+
+    /** -----------------------------------------------------
+     *     MÉTODO MAIN PARA PRUEBAS
+     ----------------------------------------------------- */
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                JFrame frame = new JFrame("Parchís - Tablero");
+                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                
+                // Pantalla completa
+                Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+                frame.setSize(screen.width, screen.height);
+                frame.setLocation(0, 0);
+                
+                // Agregar el tablero
+                frame.setContentPane(new TableroVista());
+                
+                frame.setVisible(true);
+            }
+        });
     }
 }

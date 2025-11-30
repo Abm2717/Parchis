@@ -47,8 +47,8 @@ public class Avatares extends JFrame {
         this.ipServidor = ipServidor;
         this.puerto = puerto;
         this.esCreador = false;
-        this.nombrePartida = "Partida"; // Genérico
-        this.maxJugadores = 4; // Genérico
+        this.nombrePartida = null;
+        this.maxJugadores = 0;
         
         inicializarInterfaz();
     }
@@ -323,16 +323,26 @@ public class Avatares extends JFrame {
                         @Override
                         public void run() {
                             System.out.println("[AVATARES] Abriendo pantalla de carga");
-                            PantallaCarga pantallaCarga = new PantallaCarga(
-                                controlador,
-                                nombreJugador,
-                                nombrePartida,
-                                maxJugadores,
-                                puerto,
-                                rutaAvatarSeleccionado
-                            );
-                            pantallaCarga.setVisible(true);
                             
+                            // SI ES CREADOR: Constructor con toda la info
+                            // SI SE UNE: Constructor vacío (sin info)
+                            PantallaCarga pantallaCarga;
+                            
+                            if (esCreador) {
+                                pantallaCarga = new PantallaCarga(
+                                    controlador,
+                                    nombreJugador,
+                                    nombrePartida,
+                                    maxJugadores,
+                                    puerto,
+                                    rutaAvatarSeleccionado
+                                );
+                            } else {
+                                // Constructor vacío para quien se une
+                                pantallaCarga = new PantallaCarga(controlador);
+                            }
+                            
+                            pantallaCarga.setVisible(true);
                             dispose();
                         }
                     });
@@ -360,7 +370,7 @@ public class Avatares extends JFrame {
             @Override
             public void run() {
                 // Prueba CREAR
-                new Avatares("Abraham", "Partida Test", 4, 8000);
+                new Avatares("Abraham", "Partida Test", 2, 8000);
                 
                 // Prueba UNIRSE
                 // new Avatares("Carlos", "192.168.1.67", 8000);

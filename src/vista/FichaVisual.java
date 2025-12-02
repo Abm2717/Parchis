@@ -1,0 +1,66 @@
+package vista;
+
+/**
+ * Representa una ficha real del juego con su estado visual
+ */
+    public class FichaVisual {
+    
+    private int id;                    // ID único de la ficha (1-16)
+    private int jugadorId;             // ID del jugador dueño
+    private String color;              // ROJO, AZUL, VERDE, AMARILLO
+    private int posicionCasilla;       // Índice de casilla actual (1-96, o -1 si en casa)
+    private boolean estaEnCasa;        // true si está en casa
+    private boolean estaEnMeta;        // true si llegó a meta
+    
+    public FichaVisual(int id, int jugadorId, String color) {
+        this.id = id;
+        this.jugadorId = jugadorId;
+        this.color = color;
+        this.posicionCasilla = -1;     // Empieza en casa
+        this.estaEnCasa = true;
+        this.estaEnMeta = false;
+    }
+    
+    // Getters y setters
+    public int getId() { return id; }
+    public int getJugadorId() { return jugadorId; }
+    public String getColor() { return color; }
+    public int getPosicionCasilla() { return posicionCasilla; }
+    public boolean estaEnCasa() { return estaEnCasa; }
+    public boolean estaEnMeta() { return estaEnMeta; }
+    
+    public void setPosicionCasilla(int posicionCasilla) {
+        this.posicionCasilla = posicionCasilla;
+    }
+    
+    public void setEstaEnCasa(boolean estaEnCasa) {
+        this.estaEnCasa = estaEnCasa;
+    }
+    
+    public void setEstaEnMeta(boolean estaEnMeta) {
+        this.estaEnMeta = estaEnMeta;
+    }
+    
+    public void setColor(String color) {
+        this.color = color;
+    }
+    
+    /**
+     * Obtiene la casilla de salida según el color
+     */
+    public int getCasillaSalida() {
+        switch (color) {
+            case "ROJO": return 1;
+            case "AMARILLO": return 18;
+            case "AZUL": return 35;
+            case "VERDE": return 52;
+            default: return 1;
+        }
+    }
+    
+    @Override
+    public String toString() {
+        return String.format("Ficha[id=%d, color=%s, pos=%d, casa=%b, meta=%b]",
+            id, color, posicionCasilla, estaEnCasa, estaEnMeta);
+    }
+}

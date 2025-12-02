@@ -340,14 +340,29 @@ public class CtrlUnirse {
         notificacion.addProperty("tipo", "partida_iniciada");
         notificacion.addProperty("mensaje", "¡La partida ha comenzado!");
         notificacion.addProperty("turnoInicial", partida.getTurnoActual());
-        
+
         Jugador jugadorTurno = partida.getJugadorActual();
         if (jugadorTurno != null) {
             notificacion.addProperty("turnoJugadorId", jugadorTurno.getId());
             notificacion.addProperty("turnoJugadorNombre", jugadorTurno.getNombre());
         }
-        
-               clienteHandler.getServidor().broadcastAPartida(
+
+        // ✅ NUEVO: Agregar información de jugadores con colores
+        JsonArray jugadoresArray = new JsonArray();
+        for (Jugador j : partida.getJugadores()) {
+            JsonObject jugadorObj = new JsonObject();
+            jugadorObj.addProperty("id", j.getId());
+            jugadorObj.addProperty("nombre", j.getNombre());
+            jugadorObj.addProperty("color", j.getColor() != null ? j.getColor().toString() : "NINGUNO");
+            jugadoresArray.add(jugadorObj);
+
+            System.out.println("[DEBUG CtrlUnirse] Agregando jugador: " + j.getNombre() + " con color " + j.getColor());
+        }
+        notificacion.add("jugadores", jugadoresArray);
+
+        System.out.println("[DEBUG CtrlUnirse] JSON enviado: " + notificacion.toString());
+
+        clienteHandler.getServidor().broadcastAPartida(
             partida.getId(),
             notificacion.toString()
         );

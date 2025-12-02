@@ -1,6 +1,7 @@
 package controlador;
 
 import vista.VistaCliente;
+import vista.TableroVista;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
@@ -9,21 +10,24 @@ import java.io.*;
 import java.net.Socket;
 
 /**
- * ✅ ACTUALIZADO: Comunicación P2P real
+ * ✅ ACTUALIZADO: Comunicación P2P real + Conexión con TableroVista
  * - Movimientos van directamente a peers (10ms)
  * - Servidor valida en paralelo (100ms)
+ * - Actualiza TableroVista en tiempo real
  */
 public class ClienteControlador {
     
     private final VistaCliente vista;
     private vista.PantallaCarga vistaCarga;
+    private TableroVista tableroVista;
+    
     private Socket socket;
     private BufferedReader entrada;
     private PrintWriter salida;
     private Thread hiloEscucha;
     private boolean conectado;
     private int jugadorId;
-    private String nombreJugador; // ✅ NUEVO
+    private String nombreJugador;
     private int partidaActualId;
     private boolean esmiTurno;
     private int ultimoResultadoDados;
@@ -37,6 +41,9 @@ public class ClienteControlador {
     private ClientePeer clientePeer;
     private int miPuertoPeer;
     
+    // ✅ Cache de nombres [rojo, azul, verde, amarillo]
+    private String[] nombresGuardados = null;
+    
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
         this.conectado = false;
@@ -47,13 +54,31 @@ public class ClienteControlador {
         this.ultimoResultadoDados = 0;
         this.clientePeer = null;
         this.miPuertoPeer = -1;
+        this.tableroVista = null;
+        this.nombresGuardados = null;
     }
     
     /**
-    * ✅ NUEVO: Conecta la vista de carga para recibir actualizaciones
-    */
+     * ✅ Conecta la vista de carga para recibir actualizaciones
+     */
     public void setVistaCarga(vista.PantallaCarga vistaCarga) {
-       this.vistaCarga = vistaCarga;
+        this.vistaCarga = vistaCarga;
+    }
+    
+    /**
+     * ✅ Asigna la vista del tablero para actualizar la UI
+     */
+    public void setTableroVista(TableroVista tableroVista) {
+        this.tableroVista = tableroVista;
+        System.out.println("[ClienteControlador] TableroVista conectado");
+    }
+    
+    /**
+     * ✅ NUEVO: Obtiene los nombres guardados
+     * @return Array [rojo, azul, verde, amarillo]
+     */
+    public String[] getNombresGuardados() {
+        return nombresGuardados;
     }
     
     public boolean conectar(String ip, int puerto) {
@@ -63,7 +88,7 @@ public class ClienteControlador {
             
             System.out.println("[DEBUG] Iniciando cliente peer...");
             clientePeer = new ClientePeer(miPuertoPeer);
-            clientePeer.setVista(vista); // ✅ NUEVO: Conectar vista
+            clientePeer.setVista(vista);
             
             System.out.println("[DEBUG] Conectando al servidor " + ip + ":" + puerto);
             socket = new Socket(ip, puerto);
@@ -204,32 +229,59 @@ public class ClienteControlador {
                     System.out.println("[INFO] " + nombreListo + " esta listo");
                     break;
 
-                case "partida_iniciada":
+               case "partida_iniciada":
                     if (json.has("turnoJugadorId")) {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    
-                    // ✅ Notificar a PantallaCarga que inicie el juego
-                    if (vistaCarga != null) {
-                        vistaCarga.iniciarPartida();
+
+                    // ✅ PASO 1: Extraer y GUARDAR nombres PRIMERO
+                    if (json.has("jugadores")) {
+                        JsonArray jugadores = json.getAsJsonArray("jugadores");
+
+                        // Inicializar array con valores por defecto
+                        String[] nombres = new String[] { 
+                            "Jugador Rojo", 
+                            "Jugador Azul", 
+                            "Jugador Verde", 
+                            "Jugador Amarillo" 
+                        };
+
+                        // Actualizar solo los jugadores que existen
+                        for (int i = 0; i < jugadores.size(); i++) {
+                            JsonObject jugador = jugadores.get(i).getAsJsonObject();
+                            String color = jugador.get("color").getAsString();
+                            String nombreJug = jugador.get("nombre").getAsString();
+
+                            switch (color) {
+                                case "ROJO": nombres[0] = nombreJug; break;
+                                case "AZUL": nombres[1] = nombreJug; break;
+                                case "VERDE": nombres[2] = nombreJug; break;
+                                case "AMARILLO": nombres[3] = nombreJug; break;
+                            }
+
+                            System.out.println("[DEBUG] Jugador: " + nombreJug + " -> " + color);
+                        }
+
+                        // ✅ GUARDAR nombres
+                        nombresGuardados = nombres;
+                        System.out.println("[ClienteControlador] Nombres guardados: " + jugadores.size() + " jugadores");
+                        System.out.println("  Rojo=" + nombres[0] + " Azul=" + nombres[1] + " Verde=" + nombres[2] + " Amarillo=" + nombres[3]);
                     }
 
-
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(500);
-                            vista.iniciarJuego();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }).start();
+                    // ✅ PASO 2: DESPUÉS de guardar nombres, notificar a PantallaCarga
+                    if (vistaCarga != null) {
+                        System.out.println("[ClienteControlador] Nombres listos, iniciando partida en GUI");
+                        vistaCarga.iniciarPartida();
+                    }
                     break;
-
+                    
                 case "tu_turno":
                     esmiTurno = true;
                     System.out.println("[DEBUG] Recibido 'tu_turno' - Activando turno");
-                    vista.notificarTurno();
+                    if (vista != null) {
+                        vista.notificarTurno();
+                    }
                     break;
 
                 case "cambio_turno":
@@ -242,13 +294,23 @@ public class ClienteControlador {
                         esmiTurno = true;
                     }
 
-                    vista.mostrarCambioTurno(nombreTurno);
+                    if (vista != null) {
+                        vista.mostrarCambioTurno(nombreTurno);
+                    }
                     break;
 
                 case "estado_tablero":
                     JsonObject tableroJson = json.getAsJsonObject("tablero");
                     ultimoEstadoTablero = tableroJson;
-                    vista.mostrarEstadoTablero(tableroJson);
+
+                    // ✅ Actualizar TableroVista
+                    if (tableroVista != null) {
+                        tableroVista.actualizarFichas(tableroJson);
+                    }
+
+                    if (vista != null) {
+                        vista.mostrarEstadoTablero(tableroJson);
+                    }
                     break;
 
                 case "resultado_dados":
@@ -281,11 +343,17 @@ public class ClienteControlador {
                         tieneFichasEnJuego = false;
                     }
 
-                    vista.mostrarResultadoDados(dado1, dado2, esDoble);
+                    // ✅ Actualizar TableroVista con los dados
+                    if (tableroVista != null) {
+                        tableroVista.mostrarResultadoDados(dado1, dado2);
+                    }
+
+                    if (vista != null) {
+                        vista.mostrarResultadoDados(dado1, dado2, esDoble);
+                    }
                     break;
 
                 case "jugador_tiro_dados":
-                    // Los peers ya recibieron el mensaje P2P antes
                     break;
 
                 case "movimiento_exitoso":
@@ -303,23 +371,47 @@ public class ClienteControlador {
 
                     if (json.has("dadoDisponible")) {
                         dadoDisponible = json.get("dadoDisponible").getAsInt();
-                        System.out.println("[DEBUG] Dado disponible después de sacar: " + dadoDisponible);
+                        System.out.println("[DEBUG] Dado disponible después de mover: " + dadoDisponible);
+                    }
+
+                    // ✅ NUEVO: Actualizar TableroVista según el movimiento
+                    if (tableroVista != null) {
+                        if (desde == -1) {
+                            // Sacó ficha de casa
+                            System.out.println("[ClienteControlador] Sacando ficha #" + fichaId);
+                            tableroVista.sacarFicha(fichaId);
+                        } else {
+                            // Movió ficha en tablero
+                            int distancia = hasta - desde;
+                            System.out.println("[ClienteControlador] Moviendo ficha #" + fichaId + " " + distancia + " casillas");
+
+                            // Llamar avanzarCasilla() tantas veces como la distancia
+                            for (int i = 0; i < distancia; i++) {
+                                tableroVista.avanzarCasilla(fichaId);
+
+                                // Pequeña pausa para ver la animación (opcional)
+                                try {
+                                    Thread.sleep(100); // 100ms entre cada casilla
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
                     }
 
                     if (automatico) {
-                        vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
+                        if (vista != null) {
+                            vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
+                        }
                     }
                     break;
 
                 case "ficha_capturada":
-                    // Confirmación del servidor (ya se mostró por P2P)
                     break;
 
                 case "ficha_en_meta":
-                    // Confirmación del servidor (ya se mostró por P2P)
                     break;
 
-                // ✅ NUEVO: Manejo de bonus de captura
                 case "bonus_disponible":
                 case "bonus_disponibles":
                     if (json.has("mensaje")) {
@@ -329,13 +421,17 @@ public class ClienteControlador {
 
                 case "partida_ganada":
                     String ganador = json.get("ganadorNombre").getAsString();
-                    vista.mostrarGanador(ganador);
+                    if (vista != null) {
+                        vista.mostrarGanador(ganador);
+                    }
                     break;
 
                 case "penalizacion_tres_dobles":
                     String jugadorPenalizado = json.get("jugadorNombre").getAsString();
                     String mensajePenalizacion = json.get("mensaje").getAsString();
-                    vista.mostrarPenalizacionTresDobles(jugadorPenalizado, mensajePenalizacion);
+                    if (vista != null) {
+                        vista.mostrarPenalizacionTresDobles(jugadorPenalizado, mensajePenalizacion);
+                    }
                     break;
 
                 case "error":
@@ -357,6 +453,7 @@ public class ClienteControlador {
 
         } catch (Exception e) {
             System.err.println("Error procesando mensaje: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -391,7 +488,7 @@ public class ClienteControlador {
     }
     
     // ========================================
-    // MÉTODOS DE JUEGO (ACTUALIZADOS CON P2P)
+    // MÉTODOS DE JUEGO
     // ========================================
     
     public boolean registrar(String nombre) {
@@ -434,11 +531,7 @@ public class ClienteControlador {
         return enviarMensaje(mensaje);
     }
     
-    /**
-     * ✅ ACTUALIZADO: Tirar dados con comunicación P2P
-     */
     public boolean tirarDados() {
-        // 1. Enviar al servidor (validación)
         JsonObject mensajeServidor = new JsonObject();
         mensajeServidor.addProperty("tipo", "tirar_dado");
         enviarMensaje(mensajeServidor);
@@ -446,9 +539,6 @@ public class ClienteControlador {
         return true;
     }
     
-    /**
-     * ✅ NUEVO: Notifica a peers que tiraste dados (después de que el servidor confirme)
-     */
     public void notificarDadosAPeers(int dado1, int dado2) {
         if (clientePeer == null) return;
         
@@ -462,14 +552,9 @@ public class ClienteControlador {
         clientePeer.broadcastAPeers(mensajeP2P.toString());
     }
     
-    /**
-     * ✅ ACTUALIZADO: Mover ficha con comunicación P2P
-     */
     public boolean moverFicha(int fichaId, int dado1, int dado2) {
-        // 1. Enviar a PEERS primero (optimista - 10ms)
-        enviarMovimientoAPeers(fichaId, -1, -1); // desde/hasta se actualizan después
+        enviarMovimientoAPeers(fichaId, -1, -1);
         
-        // 2. Enviar al servidor (validación - 100ms)
         JsonObject mensajeServidor = new JsonObject();
         mensajeServidor.addProperty("tipo", "mover_ficha");
         mensajeServidor.addProperty("fichaId", fichaId);
@@ -479,14 +564,9 @@ public class ClienteControlador {
         return enviarMensaje(mensajeServidor);
     }
     
-    /**
-     * ✅ ACTUALIZADO: Mover con un dado con comunicación P2P
-     */
     public boolean moverFichaConUnDado(int fichaId, int valorDado, boolean pasarTurno) {
-        // 1. Enviar a PEERS primero (optimista - 10ms)
         enviarMovimientoAPeers(fichaId, -1, -1);
         
-        // 2. Enviar al servidor (validación - 100ms)
         JsonObject mensajeServidor = new JsonObject();
         mensajeServidor.addProperty("tipo", "mover_ficha_un_dado");
         mensajeServidor.addProperty("fichaId", fichaId);
@@ -496,9 +576,6 @@ public class ClienteControlador {
         return enviarMensaje(mensajeServidor);
     }
     
-    /**
-     * ✅ NUEVO: Envía movimiento a todos los peers
-     */
     private void enviarMovimientoAPeers(int fichaId, int desde, int hasta) {
         if (clientePeer == null) return;
         
@@ -513,9 +590,6 @@ public class ClienteControlador {
         clientePeer.broadcastAPeers(mensajeP2P.toString());
     }
     
-    /**
-     * ✅ NUEVO: Notifica captura a peers
-     */
     public void notificarCapturaAPeers() {
         if (clientePeer == null) return;
         
@@ -527,9 +601,6 @@ public class ClienteControlador {
         clientePeer.broadcastAPeers(mensajeP2P.toString());
     }
     
-    /**
-     * ✅ NUEVO: Notifica llegada a meta a peers
-     */
     public void notificarMetaAPeers() {
         if (clientePeer == null) return;
         
@@ -554,7 +625,9 @@ public class ClienteControlador {
     }
     
     public void mostrarEstadoPartida() {
-        vista.mostrarEstadoCompleto(jugadorId, ultimoEstadoTablero);
+        if (vista != null) {
+            vista.mostrarEstadoCompleto(jugadorId, ultimoEstadoTablero);
+        }
     }
     
     public boolean esmiTurno() {

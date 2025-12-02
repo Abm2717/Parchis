@@ -237,30 +237,63 @@ public class PantallaCarga extends JFrame {
     /**
      * ✅ MODIFICADO - Ahora pasa el controlador a VentanaJuego
      */
-    public void iniciarPartida() {
-        SwingUtilities.invokeLater(() -> {
-            actualizarTextoEspera("¡Iniciando partida!");
-            btnListo.setEnabled(false);
+    /**
+ * ✅ MODIFICADO - Espera a que los nombres estén disponibles
+ */
+public void iniciarPartida() {
+    SwingUtilities.invokeLater(() -> {
+        System.out.println("[PantallaCarga] iniciarPartida() llamado");
+        
+        // ✅ INTENTAR obtener nombres con reintentos
+        String[] nombres = null;
+        int intentos = 0;
+        int maxIntentos = 20; // 2 segundos máximo (20 x 100ms)
+        
+        while (nombres == null && intentos < maxIntentos) {
+            nombres = controlador.getNombresGuardados();
             
-            new Thread(() -> {
+            if (nombres == null) {
+                System.out.println("[PantallaCarga] Esperando nombres... intento " + (intentos + 1));
                 try {
-                    Thread.sleep(2000);
-                    
-                    SwingUtilities.invokeLater(() -> {
-                        // ✅ CAMBIO CRÍTICO: Pasar el controlador a VentanaJuego
-                        VentanaJuego ventanaJuego = new VentanaJuego(controlador);
-                        ventanaJuego.setVisible(true);
-                        dispose();
-                        
-                        System.out.println("[PantallaCarga] VentanaJuego creada con controlador");
-                    });
-                    
+                    Thread.sleep(100); // Esperar 100ms
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-            }).start();
-        });
-    }
+                intentos++;
+            }
+        }
+        
+        // ✅ Verificar resultado
+        if (nombres == null) {
+            System.err.println("[ERROR PantallaCarga] No se pudieron obtener nombres después de " + maxIntentos + " intentos");
+            nombres = new String[] { "Jugador Rojo", "Jugador Azul", "Jugador Verde", "Jugador Amarillo" };
+        } else {
+            System.out.println("[PantallaCarga] Nombres obtenidos después de " + intentos + " intentos:");
+            System.out.println("  Rojo=" + nombres[0]);
+            System.out.println("  Azul=" + nombres[1]);
+            System.out.println("  Verde=" + nombres[2]);
+            System.out.println("  Amarillo=" + nombres[3]);
+        }
+        
+        // Crear la ventana del juego CON los nombres
+        VentanaJuego ventanaJuego = new VentanaJuego(controlador, nombres);
+        
+        // Obtener referencia al TableroVista
+        TableroVista tablero = ventanaJuego.getTableroVista();
+        
+        // Conectar TableroVista con el controlador
+        controlador.setTableroVista(tablero);
+        
+        // Hacer visible
+        ventanaJuego.setVisible(true);
+        
+        // Cerrar pantalla de carga
+        Window ventanaCarga = SwingUtilities.getWindowAncestor(this);
+        if (ventanaCarga != null) {
+            ventanaCarga.dispose();
+        }
+    });
+}
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {

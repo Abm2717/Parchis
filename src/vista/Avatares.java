@@ -265,7 +265,7 @@ public class Avatares extends JFrame {
     }
 
     /**
-     * ✅ MODIFICADO: Método común - conecta al servidor y abre PantallaCarga
+     * Método común: conecta al servidor y abre PantallaCarga
      */
     private void conectarYAbrir() {
         Thread hiloConexion = new Thread(new Runnable() {
@@ -274,9 +274,7 @@ public class Avatares extends JFrame {
                 try {
                     System.out.println("[AVATARES] Conectando a " + ipServidor + ":" + puerto);
                     
-                    // ✅ CRÍTICO: Crear VistaCliente real (aunque no se use para GUI)
-                    VistaCliente vistaConsola = new VistaCliente();
-                    ClienteControlador controlador = new ClienteControlador(vistaConsola);
+                    ClienteControlador controlador = new ClienteControlador(null);
                     
                     boolean conectado = controlador.conectar(ipServidor, puerto);
                     
@@ -326,6 +324,8 @@ public class Avatares extends JFrame {
                         public void run() {
                             System.out.println("[AVATARES] Abriendo pantalla de carga");
                             
+                            // SI ES CREADOR: Constructor con toda la info
+                            // SI SE UNE: Constructor vacío (sin info)
                             PantallaCarga pantallaCarga;
                             
                             if (esCreador) {
@@ -338,6 +338,7 @@ public class Avatares extends JFrame {
                                     rutaAvatarSeleccionado
                                 );
                             } else {
+                                // Constructor vacío para quien se une
                                 pantallaCarga = new PantallaCarga(controlador);
                             }
                             

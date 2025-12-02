@@ -7,7 +7,7 @@ import java.net.InetAddress;
 
 /**
  * Pantalla de sala de espera antes de iniciar la partida.
- * ✅ MODIFICADO - Ahora crea VentanaJuego con TableroVista conectado
+ * ✅ MODIFICADO - Ahora pasa el ClienteControlador a VentanaJuego
  */
 public class PantallaCarga extends JFrame {
     
@@ -235,32 +235,30 @@ public class PantallaCarga extends JFrame {
     }
     
     /**
-     * ✅ MODIFICADO: Crea VentanaJuego con TableroVista y conecta el controlador
+     * ✅ MODIFICADO - Ahora pasa el controlador a VentanaJuego
      */
     public void iniciarPartida() {
-         SwingUtilities.invokeLater(() -> {
-            System.out.println("[PantallaCarga] Iniciando partida...");
-
-            // 1. Crear la ventana del juego
-            VentanaJuego ventanaJuego = new VentanaJuego(controlador);
-            System.out.println("[VentanaJuego] Ventana creada con TableroVista");
-
-            // 2. Obtener referencia al TableroVista
-            TableroVista tablero = ventanaJuego.getTableroVista();
-
-            // 3. ✅ CRÍTICO: Conectar TableroVista con el controlador
-            controlador.setTableroVista(tablero);
-            System.out.println("[PantallaCarga] TableroVista conectado al controlador");
-
-            // 4. Hacer visible la ventana
-            ventanaJuego.setVisible(true);
-            System.out.println("[PantallaCarga] VentanaJuego visible");
-
-            // 5. Cerrar la pantalla de carga
-            JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
-            if (topFrame != null) {
-                topFrame.dispose();
-            }
+        SwingUtilities.invokeLater(() -> {
+            actualizarTextoEspera("¡Iniciando partida!");
+            btnListo.setEnabled(false);
+            
+            new Thread(() -> {
+                try {
+                    Thread.sleep(2000);
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        // ✅ CAMBIO CRÍTICO: Pasar el controlador a VentanaJuego
+                        VentanaJuego ventanaJuego = new VentanaJuego(controlador);
+                        ventanaJuego.setVisible(true);
+                        dispose();
+                        
+                        System.out.println("[PantallaCarga] VentanaJuego creada con controlador");
+                    });
+                    
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
         });
     }
     

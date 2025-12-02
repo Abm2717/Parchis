@@ -1,13 +1,12 @@
 package vista;
-
 public class CoordenadaCasilla {
     public int x1, y1;  // Primera posición
     public int x2, y2;  // Segunda posición
     public int x3, y3;  // Tercera posición (solo para META)
     public int x4, y4;  // Cuarta posición (solo para META)
-    
+
     private boolean esMeta;
-    
+
     /**
      * Constructor para casillas normales (2 posiciones)
      */
@@ -18,7 +17,7 @@ public class CoordenadaCasilla {
         this.y2 = y2;
         this.esMeta = false;
     }
-    
+
     /**
      * Constructor para casillas META (4 posiciones)
      */
@@ -33,7 +32,7 @@ public class CoordenadaCasilla {
         this.y4 = y4;
         this.esMeta = true;
     }
-    
+
     /**
      * Obtiene la posición X según el número de ficha (0, 1, 2, 3)
      */
@@ -46,7 +45,7 @@ public class CoordenadaCasilla {
             default: return x1;
         }
     }
-    
+
     /**
      * Obtiene la posición Y según el número de ficha (0, 1, 2, 3)
      */
@@ -59,7 +58,7 @@ public class CoordenadaCasilla {
             default: return y1;
         }
     }
-    
+
     public boolean esMeta() {
         return esMeta;
     }

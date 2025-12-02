@@ -1,29 +1,35 @@
 package controlador;
 
 import vista.VistaCliente;
+import vista.TableroVista;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonArray;
 import controlador.peer.ClientePeer;
 import java.io.*;
 import java.net.Socket;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
- * ✅ ACTUALIZADO: Comunicación P2P real
+ * ✅ ACTUALIZADO: Comunicación P2P real + Conexión con TableroVista
  * - Movimientos van directamente a peers (10ms)
  * - Servidor valida en paralelo (100ms)
+ * - Actualiza TableroVista en tiempo real
  */
 public class ClienteControlador {
     
     private final VistaCliente vista;
     private vista.PantallaCarga vistaCarga;
+    private TableroVista tableroVista;
+    
     private Socket socket;
     private BufferedReader entrada;
     private PrintWriter salida;
     private Thread hiloEscucha;
     private boolean conectado;
     private int jugadorId;
-    private String nombreJugador; // ✅ NUEVO
+    private String nombreJugador;
     private int partidaActualId;
     private boolean esmiTurno;
     private int ultimoResultadoDados;
@@ -37,6 +43,9 @@ public class ClienteControlador {
     private ClientePeer clientePeer;
     private int miPuertoPeer;
     
+    // ✅ NUEVO: Cache temporal de nombres hasta que TableroVista esté listo
+    private Map<String, String> nombresJugadoresPendientes;
+    
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
         this.conectado = false;
@@ -47,13 +56,33 @@ public class ClienteControlador {
         this.ultimoResultadoDados = 0;
         this.clientePeer = null;
         this.miPuertoPeer = -1;
+        this.tableroVista = null;
+        this.nombresJugadoresPendientes = new HashMap<>(); // ✅ NUEVO
     }
     
     /**
-    * ✅ NUEVO: Conecta la vista de carga para recibir actualizaciones
-    */
+     * ✅ Conecta la vista de carga para recibir actualizaciones
+     */
     public void setVistaCarga(vista.PantallaCarga vistaCarga) {
-       this.vistaCarga = vistaCarga;
+        this.vistaCarga = vistaCarga;
+    }
+    
+    /**
+     * ✅ MODIFICADO: Asigna la vista del tablero y aplica nombres pendientes
+     * Este método se llama desde VentanaJuego después de crear el tablero
+     * 
+     * @param tableroVista Referencia al TableroVista para actualizar la UI
+     */
+    public void setTableroVista(TableroVista tableroVista) {
+        this.tableroVista = tableroVista;
+        System.out.println("[ClienteControlador] TableroVista conectado");
+        
+        // ✅ NUEVO: Si hay nombres pendientes, aplicarlos ahora
+        if (!nombresJugadoresPendientes.isEmpty()) {
+            System.out.println("[ClienteControlador] Aplicando nombres pendientes: " + nombresJugadoresPendientes);
+            tableroVista.actualizarNombresJugadores(nombresJugadoresPendientes);
+            nombresJugadoresPendientes.clear(); // Limpiar cache
+        }
     }
     
     public boolean conectar(String ip, int puerto) {
@@ -63,7 +92,7 @@ public class ClienteControlador {
             
             System.out.println("[DEBUG] Iniciando cliente peer...");
             clientePeer = new ClientePeer(miPuertoPeer);
-            clientePeer.setVista(vista); // ✅ NUEVO: Conectar vista
+            clientePeer.setVista(vista);
             
             System.out.println("[DEBUG] Conectando al servidor " + ip + ":" + puerto);
             socket = new Socket(ip, puerto);
@@ -209,12 +238,38 @@ public class ClienteControlador {
                         int turnoId = json.get("turnoJugadorId").getAsInt();
                         esmiTurno = (turnoId == jugadorId);
                     }
-                    
-                    // ✅ Notificar a PantallaCarga que inicie el juego
+
+                    // ✅ CORREGIDO: Extraer nombres y guardarlos (aplicar cuando tableroVista exista)
+                    if (json.has("jugadores")) {
+                        JsonArray jugadores = json.getAsJsonArray("jugadores");
+                        Map<String, String> nombresJugadores = new HashMap<>();
+
+                        for (int i = 0; i < jugadores.size(); i++) {
+                            JsonObject jugador = jugadores.get(i).getAsJsonObject();
+                            String color = jugador.get("color").getAsString();
+                            String nombreJug = jugador.get("nombre").getAsString();
+                            nombresJugadores.put(color, nombreJug);
+                            System.out.println("[DEBUG] Jugador extraído: " + nombreJug + " -> " + color);
+                        }
+
+                        // ✅ Si TableroVista ya existe, aplicar inmediatamente
+                        if (tableroVista != null) {
+                            tableroVista.actualizarNombresJugadores(nombresJugadores);
+                            System.out.println("[ClienteControlador] Nombres aplicados inmediatamente a TableroVista");
+                        } else {
+                            // ✅ Si no existe aún, guardar para aplicar después
+                            nombresJugadoresPendientes = nombresJugadores;
+                            System.out.println("[ClienteControlador] Nombres guardados (TableroVista aún no existe): " + nombresJugadores);
+                        }
+                    } else {
+                        System.err.println("[ERROR] JSON NO tiene campo 'jugadores'");
+                        System.out.println("[DEBUG] JSON completo: " + json.toString());
+                    }
+
+                    // Notificar a PantallaCarga que inicie el juego
                     if (vistaCarga != null) {
                         vistaCarga.iniciarPartida();
                     }
-
 
                     new Thread(() -> {
                         try {
@@ -225,7 +280,7 @@ public class ClienteControlador {
                         }
                     }).start();
                     break;
-
+                    
                 case "tu_turno":
                     esmiTurno = true;
                     System.out.println("[DEBUG] Recibido 'tu_turno' - Activando turno");
@@ -248,6 +303,17 @@ public class ClienteControlador {
                 case "estado_tablero":
                     JsonObject tableroJson = json.getAsJsonObject("tablero");
                     ultimoEstadoTablero = tableroJson;
+
+                    System.out.println("[DEBUG estado_tablero] JSON recibido");
+
+                    // ✅ Actualizar TableroVista con el estado
+                    if (tableroVista != null) {
+                        System.out.println("[DEBUG] Actualizando TableroVista con estado del servidor");
+                        tableroVista.actualizarEstadoTablero(tableroJson);
+                    } else {
+                        System.err.println("[ERROR] tableroVista es NULL, no se puede actualizar");
+                    }
+
                     vista.mostrarEstadoTablero(tableroJson);
                     break;
 
@@ -279,6 +345,11 @@ public class ClienteControlador {
                         System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
                     } else {
                         tieneFichasEnJuego = false;
+                    }
+
+                    // ✅ Actualizar TableroVista con los dados
+                    if (tableroVista != null) {
+                        tableroVista.mostrarResultadoDados(dado1, dado2);
                     }
 
                     vista.mostrarResultadoDados(dado1, dado2, esDoble);
@@ -319,7 +390,7 @@ public class ClienteControlador {
                     // Confirmación del servidor (ya se mostró por P2P)
                     break;
 
-                // ✅ NUEVO: Manejo de bonus de captura
+                // Manejo de bonus de captura
                 case "bonus_disponible":
                 case "bonus_disponibles":
                     if (json.has("mensaje")) {

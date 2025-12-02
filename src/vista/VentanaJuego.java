@@ -1,27 +1,58 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package vista;
 
-import java.awt.Dimension;
-import java.awt.Toolkit;
-import javax.swing.JFrame;
+import controlador.ClienteControlador;
+import javax.swing.*;
+import java.awt.*;
 
+/**
+ * Ventana principal del juego que contiene el TableroVista
+ * ✅ NUEVA CLASE para integrar TableroVista con el controlador
+ * 
+ * Esta clase sirve como contenedor del TableroVista y facilita
+ * la comunicación bidireccional entre el controlador y la vista.
+ */
 public class VentanaJuego extends JFrame {
-
-    public VentanaJuego() {
-        setTitle("Parchís");
-
-        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        setSize(screen.width, screen.height);
-        setLocation(0, 0);
-
-        setContentPane(new TableroVista());
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+    
+    private ClienteControlador controlador;
+    private TableroVista tableroVista;
+    
+    /**
+     * Constructor que recibe el controlador del juego
+     * 
+     * @param controlador ClienteControlador con la conexión al servidor
+     */
+    public VentanaJuego(ClienteControlador controlador) {
+        this.controlador = controlador;
+        
+        setTitle("Parchís - Juego en Curso");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setLocationRelativeTo(null);
+        
+        // Crear TableroVista con el controlador
+        tableroVista = new TableroVista(controlador);
+        setContentPane(tableroVista);
+        
+        System.out.println("[VentanaJuego] Ventana creada con TableroVista");
     }
-
-    public static void main(String[] args) {
-        new VentanaJuego().setVisible(true);
+    
+    /**
+     * Obtiene la vista del tablero
+     * Útil para que otros componentes puedan acceder al tablero
+     * 
+     * @return TableroVista actual
+     */
+    public TableroVista getTableroVista() {
+        return tableroVista;
+    }
+    
+    /**
+     * Actualiza el tablero visualmente
+     * Llama al método repaint del TableroVista
+     */
+    public void actualizarTablero() {
+        if (tableroVista != null) {
+            tableroVista.actualizarVista();
+        }
     }
 }

@@ -1,260 +1,485 @@
 package vista;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Image;
-import java.awt.Toolkit;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.Random;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
+import controlador.ClienteControlador;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
+/**
+ * Vista del tablero de Parchís.
+ * ✅ FASE 2: Dibuja fichas reales desde el estado del servidor
+ */
 public class TableroVista extends JPanel {
-
-    private Image fondo, tablero;
+    
+    // Referencia al controlador
+    private ClienteControlador controlador;
+    
+    // Recursos visuales
+    private Image fondo;
+    private Image tablero;
     private Image fichaRoja, fichaAzul, fichaVerde, fichaAmarilla;
-    private Image perfilRojo, perfilAzul, perfilVerde, perfilAmarillo;
-
-    private ImageIcon[] caras;
-    private JLabel dado1Label, dado2Label;
-    private int baseX1 = 20, baseY1 = 20;
-    private int baseX2 = 80, baseY2 = 20;
-    private final Random random = new Random();
-
+    private Image[] imagenesDados;
+    private Image perfilJugador;
+    
+    // Componentes UI
+    private JLabel lblDado1;
+    private JLabel lblDado2;
+    private JButton btnTirar;
     private JButton btnSalir;
-
-    public TableroVista() {
-
+    
+    // Sistema de coordenadas
+    private MapaCasillas mapaCasillas;
+    private int tableroOffsetX;
+    private int tableroOffsetY;
+    
+    // ✅ Estado del juego
+    private List<FichaInfo> fichasEnJuego;
+    private Map<String, String> nombresJugadores; // color -> nombre
+    
+    /**
+     * Constructor que recibe el controlador del juego
+     * @param controlador Controlador que maneja la lógica y comunicación
+     */
+    public TableroVista(ClienteControlador controlador) {
+        this.controlador = controlador;
+        this.fichasEnJuego = new ArrayList<>();
+        this.nombresJugadores = new HashMap<>();
+        
         setLayout(null);
-
-        /** --- IMÁGENES --- */
-        fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
-        tablero = new ImageIcon(getClass().getResource("/vista/recursos/TAB.png")).getImage();
-
-        fichaRoja = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FR.png")).getImage();
-        fichaAzul = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FAZ.png")).getImage();
-        fichaVerde = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FV.png")).getImage();
-        fichaAmarilla = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FA.png")).getImage();
-
-        perfilRojo = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
-        perfilAzul = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
-        perfilVerde = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
-        perfilAmarillo = new ImageIcon(getClass().getResource("/vista/recursos/pp.png")).getImage();
-
-
-        /** -----------------------------------------------------
-         *    BOTÓN SALIR
-         ----------------------------------------------------- */
-        btnSalir = new JButton("Salir");
-        btnSalir.setBounds(20, 20, 90, 35);
-
-        btnSalir.setBackground(new Color(0, 0, 0, 170));
-        btnSalir.setForeground(Color.WHITE);
-        btnSalir.setFocusPainted(false);
-        btnSalir.setFont(new Font("Arial", Font.BOLD, 14));
-
-        btnSalir.addActionListener(e -> System.exit(0));
-
-        add(btnSalir);
-
-
-        /** -----------------------------------------------------
-        *   PANEL DADOS
-        ----------------------------------------------------- */
-       JPanel panelNegro = new JPanel(null);
-
-       // Tamaño del panel
-       int panelW = 200;
-       int panelH = 260;
-
-       // Posición inicial (izquierda y centrado)
-       int xPanel = 30;
-       int yPanel = (getHeight() - panelH) / 2;
-
-       panelNegro.setBounds(xPanel, yPanel, panelW, panelH);
-       panelNegro.setBackground(new Color(0, 0, 0, 150));
-       add(panelNegro);
-
-       // Dados
-       caras = new ImageIcon[6];
-       for (int i = 0; i < 6; i++) {
-           ImageIcon iconOriginal = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + (i + 1) + ".png"));
-           Image img = iconOriginal.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
-           caras[i] = new ImageIcon(img);
-       }
-
-        dado1Label = new JLabel(caras[0]);
-        dado2Label = new JLabel(caras[0]);
-
-        dado1Label.setBounds(20, 20, 80, 80);
-        dado2Label.setBounds(100, 20, 80, 80);
-
-        panelNegro.add(dado1Label);
-        panelNegro.add(dado2Label);
-
-        /** -----------------------------------------------------
-         *   BOTÓN TIRAR
-         ----------------------------------------------------- */
-        JButton btnTirar = new JButton("Tirar");
-        btnTirar.setBounds(50, 170, 100, 40);
-        btnTirar.setBackground(new Color(30, 30, 30));
-        btnTirar.setForeground(Color.WHITE);
-        btnTirar.setFocusPainted(false);
-
-        // Acción del botón
-        btnTirar.addActionListener(e -> {
-            int d1 = random.nextInt(6);
-            int d2 = random.nextInt(6);
-
-            dado1Label.setIcon(caras[d1]);
-            dado2Label.setIcon(caras[d2]);
-        });
-
-        panelNegro.add(btnTirar);
-
-        /** -----------------------------------------------------
-         *   Reacomodar el panel al cambiar tamaño
-         ----------------------------------------------------- */
-        addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                int y = (getHeight() - panelH) / 2;
-                panelNegro.setBounds(30, y, panelW, panelH);
-            }
-        });
-
-
-        /** COORDENADAS */
+        cargarRecursos();
+        inicializarComponentes();
+        
+        System.out.println("[TableroVista] TableroVista inicializado con controlador");
+        
+        // MouseListener para debug de coordenadas
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                int tabW = 700;
-                int tabH = 700;
-
-                int xTab = (getWidth() - tabW) / 2;
-                int yTab = (getHeight() - tabH) / 2;
-
-                int relX = e.getX() - xTab;
-                int relY = e.getY() - yTab;
-
-                System.out.println("TABLERO → X=" + relX + " Y=" + relY);
+                if (tableroOffsetX == 0 || tableroOffsetY == 0) return;
+                
+                int tabW = 700, tabH = 700;
+                
+                // Coordenadas relativas al tablero
+                int relX = e.getX() - tableroOffsetX;
+                int relY = e.getY() - tableroOffsetY;
+                
+                System.out.println("CLICK EN TABLERO → X=" + relX + " Y=" + relY);
             }
         });
-
-        setOpaque(false);
     }
-
-
-    /** -----------------------------------------------------
-     *     DIBUJAR TABLERO
-     ----------------------------------------------------- */
+    
+    /**
+     * Carga todos los recursos gráficos (imágenes)
+     */
+    private void cargarRecursos() {
+        try {
+            // ✅ Cargar fondo
+            fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
+            
+            // ✅ Cargar tablero
+            tablero = new ImageIcon(getClass().getResource("/vista/recursos/TAB.png")).getImage();
+            
+            // ✅ Cargar fichas
+            fichaRoja = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FR.png")).getImage();
+            fichaAzul = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FAZ.png")).getImage();
+            fichaVerde = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FV.png")).getImage();
+            fichaAmarilla = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FA.png")).getImage();
+            
+            // ✅ Cargar dados
+            imagenesDados = new Image[7]; // índice 0 no se usa
+            for (int i = 1; i <= 6; i++) {
+                imagenesDados[i] = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + i + ".png")).getImage();
+            }
+            
+            // ✅ Cargar logo para perfil
+            perfilJugador = new ImageIcon(getClass().getResource("/vista/recursos/logoP.png")).getImage();
+            
+            System.out.println("[TableroVista] Recursos cargados exitosamente");
+            
+        } catch (Exception e) {
+            System.err.println("[ERROR] Error cargando recursos: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Inicializa los componentes de la interfaz (botones, labels, etc.)
+     */
+    private void inicializarComponentes() {
+        // ✅ CORREGIDO: Panel para los dados (ARRIBA A LA DERECHA, fuera del tablero)
+        JPanel panelDados = new JPanel();
+        panelDados.setLayout(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        panelDados.setOpaque(false);
+        panelDados.setBounds(1050, 100, 300, 150); // Más a la derecha
+        
+        // Labels para los dados
+        lblDado1 = new JLabel();
+        lblDado2 = new JLabel();
+        
+        lblDado1.setPreferredSize(new Dimension(80, 80));
+        lblDado2.setPreferredSize(new Dimension(80, 80));
+        
+        lblDado1.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        lblDado2.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+        
+        panelDados.add(lblDado1);
+        panelDados.add(lblDado2);
+        
+        // ✅ CORREGIDO: Botón "Tirar Dados" - fuera del tablero
+        btnTirar = new JButton("TIRAR");
+        btnTirar.setBounds(1100, 280, 200, 60);
+        btnTirar.setFont(new Font("Arial", Font.BOLD, 24));
+        btnTirar.setBackground(new Color(34, 139, 34));
+        btnTirar.setForeground(Color.WHITE);
+        btnTirar.setFocusPainted(false);
+        btnTirar.setBorderPainted(false);
+        btnTirar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Efecto hover
+        btnTirar.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btnTirar.setBackground(new Color(46, 184, 46));
+            }
+            
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btnTirar.setBackground(new Color(34, 139, 34));
+            }
+        });
+        
+        btnTirar.addActionListener(e -> tirarDados());
+        
+        // ✅ CORREGIDO: Botón "Salir" - fuera del tablero
+        btnSalir = new JButton("SALIR");
+        btnSalir.setBounds(1100, 600, 200, 60);
+        btnSalir.setFont(new Font("Arial", Font.BOLD, 24));
+        btnSalir.setBackground(new Color(220, 20, 60));
+        btnSalir.setForeground(Color.WHITE);
+        btnSalir.setFocusPainted(false);
+        btnSalir.setBorderPainted(false);
+        btnSalir.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Efecto hover
+        btnSalir.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btnSalir.setBackground(new Color(255, 60, 90));
+            }
+            
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btnSalir.setBackground(new Color(220, 20, 60));
+            }
+        });
+        
+        btnSalir.addActionListener(e -> salir());
+        
+        // Agregar componentes al panel
+        add(panelDados);
+        add(btnTirar);
+        add(btnSalir);
+    }
+    
+    /**
+     * Maneja el evento de tirar los dados
+     */
+    private void tirarDados() {
+        System.out.println("[TableroVista] Tirando dados...");
+        
+        if (controlador == null) {
+            System.err.println("[ERROR] Controlador es null");
+            JOptionPane.showMessageDialog(this, 
+                "Error: No hay conexión con el controlador", 
+                "Error", 
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        // Verificar si es el turno del jugador
+        if (!controlador.esmiTurno()) {
+            JOptionPane.showMessageDialog(this, 
+                "No es tu turno", 
+                "Espera tu turno", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Llamar al controlador para tirar los dados
+        controlador.tirarDados();
+    }
+    
+    /**
+     * ✅ Actualiza visualmente los dados con los valores recibidos del servidor
+     * @param dado1 Valor del primer dado (1-6)
+     * @param dado2 Valor del segundo dado (1-6)
+     */
+    public void mostrarResultadoDados(int dado1, int dado2) {
+        SwingUtilities.invokeLater(() -> {
+            if (dado1 >= 1 && dado1 <= 6 && imagenesDados[dado1] != null) {
+                ImageIcon icon1 = new ImageIcon(imagenesDados[dado1].getScaledInstance(80, 80, Image.SCALE_SMOOTH));
+                lblDado1.setIcon(icon1);
+            }
+            
+            if (dado2 >= 1 && dado2 <= 6 && imagenesDados[dado2] != null) {
+                ImageIcon icon2 = new ImageIcon(imagenesDados[dado2].getScaledInstance(80, 80, Image.SCALE_SMOOTH));
+                lblDado2.setIcon(icon2);
+            }
+            
+            System.out.println("[TableroVista] Dados actualizados visualmente: [" + dado1 + "][" + dado2 + "]");
+        });
+    }
+    
+    /**
+     * Maneja el evento de salir del juego
+     */
+    private void salir() {
+        int opcion = JOptionPane.showConfirmDialog(this, 
+            "¿Estás seguro de que quieres salir?", 
+            "Confirmar salida", 
+            JOptionPane.YES_NO_OPTION);
+        
+        if (opcion == JOptionPane.YES_OPTION) {
+            System.exit(0);
+        }
+    }
+    
+    /**
+     * ✅ Actualiza el estado del tablero desde el JSON del servidor
+     */
+    public void actualizarEstadoTablero(JsonObject tableroJson) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                fichasEnJuego.clear();
+                
+                if (!tableroJson.has("casillas")) {
+                    System.err.println("[ERROR] JSON no tiene campo 'casillas'");
+                    return;
+                }
+                
+                JsonArray casillas = tableroJson.getAsJsonArray("casillas");
+                
+                // Recorrer todas las casillas
+                for (int i = 0; i < casillas.size(); i++) {
+                    JsonObject casilla = casillas.get(i).getAsJsonObject();
+                    
+                    if (!casilla.has("fichas")) continue;
+                    
+                    JsonArray fichas = casilla.getAsJsonArray("fichas");
+                    int indiceCasilla = casilla.get("indice").getAsInt();
+                    
+                    // Procesar fichas en esta casilla
+                    for (int j = 0; j < fichas.size(); j++) {
+                        JsonObject fichaJson = fichas.get(j).getAsJsonObject();
+                        
+                        int fichaId = fichaJson.get("id").getAsInt();
+                        int jugadorId = fichaJson.get("jugadorId").getAsInt();
+                        String color = fichaJson.get("color").getAsString();
+                        String estado = fichaJson.get("estado").getAsString();
+                        
+                        FichaInfo ficha = new FichaInfo(fichaId, jugadorId, color, indiceCasilla, estado);
+                        ficha.setIndiceEnCasilla(j);
+                        
+                        fichasEnJuego.add(ficha);
+                    }
+                }
+                
+                System.out.println("[TableroVista] Estado actualizado: " + fichasEnJuego.size() + " fichas en juego");
+                
+                // Redibujar el tablero
+                repaint();
+                
+            } catch (Exception e) {
+                System.err.println("[ERROR] Error actualizando estado del tablero: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
+    
+    /**
+     * ✅ Actualiza los nombres de los jugadores
+     */
+    public void actualizarNombresJugadores(Map<String, String> jugadores) {
+        SwingUtilities.invokeLater(() -> {
+            this.nombresJugadores.clear();
+            this.nombresJugadores.putAll(jugadores);
+            System.out.println("[TableroVista] Nombres actualizados: " + nombresJugadores);
+            repaint();
+        });
+    }
+    
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
-        g.drawImage(fondo, 0, 0, getWidth(), getHeight(), this);
-
-        int tabW = 700;
-        int tabH = 700;
-        int x = (getWidth() - tabW) / 2;
-        int y = (getHeight() - tabH) / 2;
-
-        g.drawImage(tablero, x, y, tabW, tabH, this);
-
-        // nombres
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 22));
-        g.drawString("Jugador 1", x - 120, y + 40);
-        g.drawString("Jugador 2", x + tabW + 10, y + 40);
-        g.drawString("Jugador 3", x - 130, y + tabH - 165);
-        g.drawString("Jugador 4", x + tabW + 10, y + tabH - 165);
-
-        // perfiles
-        g.drawImage(perfilRojo, x - 120, y + 50, 100, 100, this);
-        g.drawImage(perfilAzul, x + tabW + 20, y + 50, 100, 100, this);
-        g.drawImage(perfilVerde, x - 120, y + tabH - 150, 100, 100, this);
-        g.drawImage(perfilAmarillo, x + tabW + 20, y + tabH - 150, 100, 100, this);
-
-        // fichas
-        //g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
-        //g.drawImage(fichaRoja, x + 130, y + 415, 60, 60, this);
-        //g.drawImage(fichaRoja, x + 130, y + 385, 60, 60, this);
-        g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
-        g.drawImage(fichaRoja, x + 145, y + 570, 60, 60, this);
-
-        g.drawImage(fichaAzul, x + 80, y + 85, 60, 60, this);
-        g.drawImage(fichaAzul, x + 150, y + 85, 60, 60, this);
-        g.drawImage(fichaAzul, x + 80, y + 145, 60, 60, this);
-        g.drawImage(fichaAzul, x + 150, y + 145, 60, 60, this);
-
-        g.drawImage(fichaVerde, x + 510, y + 510, 60, 60, this);
-        g.drawImage(fichaVerde, x + 580, y + 510, 60, 60, this);
-        g.drawImage(fichaVerde, x + 510, y + 570, 60, 60, this);
-        g.drawImage(fichaVerde, x + 580, y + 570, 60, 60, this);
-
-        g.drawImage(fichaAmarilla, x + 500, y + 76, 60, 60, this);
-        g.drawImage(fichaAmarilla, x + 576, y + 76, 60, 60, this);
-        g.drawImage(fichaAmarilla, x + 500, y + 150, 60, 60, this);
-        g.drawImage(fichaAmarilla, x + 576, y + 150, 60, 60, this);
         
-        
-        MapaCasillas mapa = new MapaCasillas(x, y);
-    
-        // Probar casilla 5 con 1 ficha
-        CoordenadaCasilla coord5 = mapa.obtenerCoordenadas(1);
-        CoordenadaCasilla coord2 = mapa.obtenerCoordenadas(59);
-        CoordenadaCasilla coord3 = mapa.obtenerCoordenadas(MapaCasillas.META_VERDE);
-        if (coord5 != null) {
-            int fichaX = x + coord5.getX(0);
-            int fichaY = y + coord5.getY(0);
-            g.drawImage(fichaRoja, fichaX, fichaY, 60, 60, this);
-            g.drawImage(fichaRoja, x + coord3.getX(1), y + coord3.getY(1), 60, 60, this);
-            g.drawImage(fichaRoja, x + coord3.getX(0), y + coord3.getY(0), 60, 60, this);
-            g.drawImage(fichaRoja, x + coord3.getX(2), y + coord3.getY(2), 60, 60, this);
-            g.drawImage(fichaRoja, x + coord3.getX(3), y + coord3.getY(3), 60, 60, this);
+        // 1. Dibujar fondo
+        if (fondo != null) {
+            g.drawImage(fondo, 0, 0, getWidth(), getHeight(), this);
         }
-
-        // Probar casilla 5 con 2 fichas
-        if (coord5 != null) {
-            int ficha1X = x + coord5.getX(0);
-            int ficha1Y = y + coord5.getY(0);
-            int ficha2X = x + coord5.getX(1);
-            int ficha2Y = y + coord5.getY(1);
-
-            g.drawImage(fichaRoja, ficha2X, ficha2Y, 60, 60, this);
+        
+        // 2. Calcular posición del tablero (centrado)
+        int tabW = 700, tabH = 700;
+        tableroOffsetX = (getWidth() - tabW) / 2;
+        tableroOffsetY = (getHeight() - tabH) / 2;
+        
+        // Inicializar MapaCasillas con los offsets calculados
+        if (mapaCasillas == null) {
+            mapaCasillas = new MapaCasillas(tableroOffsetX, tableroOffsetY);
+            System.out.println("[TableroVista] MapaCasillas inicializado con offset X=" + tableroOffsetX + " Y=" + tableroOffsetY);
+        }
+        
+        // 3. Dibujar tablero
+        if (tablero != null) {
+            g.drawImage(tablero, tableroOffsetX, tableroOffsetY, tabW, tabH, this);
+        }
+        
+        // 4. Dibujar perfiles y nombres de jugadores
+        dibujarJugadores(g, tableroOffsetX, tableroOffsetY, tabW, tabH);
+        
+        // 5. Dibujar fichas REALES
+        dibujarFichas(g);
+    }
+    
+    /**
+     * ✅ CORREGIDO: Dibuja la información de los jugadores en las posiciones correctas
+     */
+    private void dibujarJugadores(Graphics g, int x, int y, int tabW, int tabH) {
+        // Configuración de texto
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 20));
+        FontMetrics fm = g.getFontMetrics();
+        
+        // ✅ CORREGIDO: Obtener nombres reales o usar placeholders
+        String nombreRojo = nombresJugadores.getOrDefault("ROJO", "Jugador Rojo");
+        String nombreAzul = nombresJugadores.getOrDefault("AZUL", "Jugador Azul");
+        String nombreVerde = nombresJugadores.getOrDefault("VERDE", "Jugador Verde");
+        String nombreAmarillo = nombresJugadores.getOrDefault("AMARILLO", "Jugador Amarillo");
+        
+        // ✅ ROJO - Abajo izquierda
+        if (perfilJugador != null) {
+            g.drawImage(perfilJugador, x - 150, y + tabH - 150, 100, 100, this);
+        }
+        int rojoX = x - 150 + 50 - fm.stringWidth(nombreRojo) / 2;
+        g.drawString(nombreRojo, rojoX, y + tabH - 30);
+        
+        // ✅ AZUL - Arriba izquierda
+        if (perfilJugador != null) {
+            g.drawImage(perfilJugador, x - 150, y + 50, 100, 100, this);
+        }
+        int azulX = x - 150 + 50 - fm.stringWidth(nombreAzul) / 2;
+        g.drawString(nombreAzul, azulX, y + 170);
+        
+        // ✅ AMARILLO - Arriba derecha
+        if (perfilJugador != null) {
+            g.drawImage(perfilJugador, x + tabW + 50, y + 50, 100, 100, this);
+        }
+        int amarilloX = x + tabW + 50 + 50 - fm.stringWidth(nombreAmarillo) / 2;
+        g.drawString(nombreAmarillo, amarilloX, y + 170);
+        
+        // ✅ VERDE - Abajo derecha
+        if (perfilJugador != null) {
+            g.drawImage(perfilJugador, x + tabW + 50, y + tabH - 150, 100, 100, this);
+        }
+        int verdeX = x + tabW + 50 + 50 - fm.stringWidth(nombreVerde) / 2;
+        g.drawString(nombreVerde, verdeX, y + tabH - 30);
+    }
+    
+    /**
+     * ✅ Dibuja las fichas usando datos REALES del servidor
+     */
+    private void dibujarFichas(Graphics g) {
+        if (mapaCasillas == null) return;
+        
+        // Dibujar fichas en CASA
+        dibujarFichasEnCasa(g);
+        
+        // Dibujar fichas EN JUEGO
+        for (FichaInfo ficha : fichasEnJuego) {
+            if (ficha.estaEnCasa()) {
+                continue;
+            }
             
+            CoordenadaCasilla coord = mapaCasillas.obtenerCoordenadas(ficha.getPosicionCasilla());
+            
+            if (coord == null) {
+                System.err.println("[ERROR] No hay coordenadas para casilla " + ficha.getPosicionCasilla());
+                continue;
+            }
+            
+            Image imagenFicha = obtenerImagenFicha(ficha.getColor());
+            
+            if (imagenFicha == null) {
+                System.err.println("[ERROR] No hay imagen para color " + ficha.getColor());
+                continue;
+            }
+            
+            int fichaX = tableroOffsetX + coord.getX(ficha.getIndiceEnCasilla());
+            int fichaY = tableroOffsetY + coord.getY(ficha.getIndiceEnCasilla());
+            
+            g.drawImage(imagenFicha, fichaX - 30, fichaY - 30, 60, 60, this);
         }
     }
-
-    /** -----------------------------------------------------
-     *     MÉTODO MAIN PARA PRUEBAS
-     ----------------------------------------------------- */
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                JFrame frame = new JFrame("Parchís - Tablero");
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                
-                // Pantalla completa
-                Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-                frame.setSize(screen.width, screen.height);
-                frame.setLocation(0, 0);
-                
-                // Agregar el tablero
-                frame.setContentPane(new TableroVista());
-                
-                frame.setVisible(true);
-            }
-        });
+    
+    /**
+     * ✅ Dibuja las fichas en CASA (hardcodeadas por ahora)
+     */
+    private void dibujarFichasEnCasa(Graphics g) {
+        // Casa ROJA (abajo-izquierda)
+        if (fichaRoja != null) {
+            g.drawImage(fichaRoja, tableroOffsetX + 75, tableroOffsetY + 510, 60, 60, this);
+            g.drawImage(fichaRoja, tableroOffsetX + 75, tableroOffsetY + 580, 60, 60, this);
+            g.drawImage(fichaRoja, tableroOffsetX + 145, tableroOffsetY + 510, 60, 60, this);
+            g.drawImage(fichaRoja, tableroOffsetX + 145, tableroOffsetY + 580, 60, 60, this);
+        }
+        
+        // Casa AZUL (arriba-izquierda)
+        if (fichaAzul != null) {
+            g.drawImage(fichaAzul, tableroOffsetX + 75, tableroOffsetY + 75, 60, 60, this);
+            g.drawImage(fichaAzul, tableroOffsetX + 75, tableroOffsetY + 145, 60, 60, this);
+            g.drawImage(fichaAzul, tableroOffsetX + 145, tableroOffsetY + 75, 60, 60, this);
+            g.drawImage(fichaAzul, tableroOffsetX + 145, tableroOffsetY + 145, 60, 60, this);
+        }
+        
+        // Casa AMARILLA (arriba-derecha)
+        if (fichaAmarilla != null) {
+            g.drawImage(fichaAmarilla, tableroOffsetX + 510, tableroOffsetY + 75, 60, 60, this);
+            g.drawImage(fichaAmarilla, tableroOffsetX + 510, tableroOffsetY + 145, 60, 60, this);
+            g.drawImage(fichaAmarilla, tableroOffsetX + 580, tableroOffsetY + 75, 60, 60, this);
+            g.drawImage(fichaAmarilla, tableroOffsetX + 580, tableroOffsetY + 145, 60, 60, this);
+        }
+        
+        // Casa VERDE (abajo-derecha)
+        if (fichaVerde != null) {
+            g.drawImage(fichaVerde, tableroOffsetX + 510, tableroOffsetY + 510, 60, 60, this);
+            g.drawImage(fichaVerde, tableroOffsetX + 510, tableroOffsetY + 580, 60, 60, this);
+            g.drawImage(fichaVerde, tableroOffsetX + 580, tableroOffsetY + 510, 60, 60, this);
+            g.drawImage(fichaVerde, tableroOffsetX + 580, tableroOffsetY + 580, 60, 60, this);
+        }
+    }
+    
+    /**
+     * Obtiene la imagen de una ficha según su color
+     */
+    private Image obtenerImagenFicha(String color) {
+        switch (color.toUpperCase()) {
+            case "ROJO": return fichaRoja;
+            case "AZUL": return fichaAzul;
+            case "VERDE": return fichaVerde;
+            case "AMARILLO": return fichaAmarilla;
+            default: return fichaRoja;
+        }
+    }
+    
+    /**
+     * Actualiza la vista
+     */
+    public void actualizarVista() {
+        repaint();
     }
 }

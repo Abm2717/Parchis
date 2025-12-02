@@ -13,35 +13,43 @@ import java.util.stream.Collectors;
 
 /**
  * Tablero de Parchis con metodos extendidos para el MotorJuego.
- * ✅ CORREGIDO: Método rutaContieneBarreraExcluyendoOrigen agregado
+ * ✅ CORREGIDO: Constantes de casillas alineadas con MapaCasillas.java
+ * ✅ CORREGIDO: AZUL y VERDE ahora tienen las posiciones correctas
  * 
- * Estructura del tablero (68 casillas normales + 8 metas):
- * - Casillas 1-68: recorrido principal circular
- * - Casillas 69-72: pasillo/meta ROJO
- * - Casillas 73-76: pasillo/meta AZUL
- * - (Agregar 77-80 AMARILLO y 81-84 VERDE segun necesites)
+ * Estructura del tablero (68 casillas normales + 28 casillas de pasillos + 4 metas):
+ * - Casillas 1-68: recorrido principal circular (antihorario)
+ * - Casillas 69-75: pasillo ROJO (7 casillas)
+ * - Casillas 76-82: pasillo VERDE (7 casillas)
+ * - Casillas 83-89: pasillo AMARILLO (7 casillas)
+ * - Casillas 90-96: pasillo AZUL (7 casillas)
  */
 public class Tablero {
     
     private static final int CASILLAS_NORMALES = 68;
-    private static final int CASILLAS_POR_PASILLO = 4;
-        private static final Map<ColorCasilla, Integer> CASILLAS_SALIDA = new HashMap<>() {{
-        put(ColorCasilla.ROJO, 1);
-        put(ColorCasilla.AZUL, 18);
-        put(ColorCasilla.AMARILLO, 35);  
-        put(ColorCasilla.VERDE, 52);     
+    private static final int CASILLAS_POR_PASILLO = 7; // ✅ CORREGIDO: Son 7 casillas por pasillo
+    
+    // ✅ CORREGIDO: Casillas de salida alineadas con MapaCasillas
+    private static final Map<ColorCasilla, Integer> CASILLAS_SALIDA = new HashMap<>() {{
+        put(ColorCasilla.ROJO, 1);       // Casilla 1 (arriba-izquierda)
+        put(ColorCasilla.VERDE, 18);     // ✅ CORREGIDO (antes: 52)
+        put(ColorCasilla.AMARILLO, 35);  // Casilla 35 (abajo-derecha)
+        put(ColorCasilla.AZUL, 52);      // ✅ CORREGIDO (antes: 18)
     }};
-        private static final Map<ColorCasilla, Integer> ENTRADA_PASILLO = new HashMap<>() {{
-        put(ColorCasilla.ROJO, 69);
-        put(ColorCasilla.AZUL, 73);
-        put(ColorCasilla.AMARILLO, 77);
-        put(ColorCasilla.VERDE, 81);
-    }};  
+    
+    // ✅ CORREGIDO: Entrada a pasillos alineadas con MapaCasillas
+    private static final Map<ColorCasilla, Integer> ENTRADA_PASILLO = new HashMap<>() {{
+        put(ColorCasilla.ROJO, 69);      // Pasillo después de casilla 68
+        put(ColorCasilla.VERDE, 76);     // ✅ CORREGIDO (antes: 81)
+        put(ColorCasilla.AMARILLO, 83);  // ✅ CORREGIDO (antes: 77)
+        put(ColorCasilla.AZUL, 90);      // ✅ CORREGIDO (antes: 73)
+    }};
+    
+    // ✅ CORREGIDO: Última casilla antes del pasillo
     private static final Map<ColorCasilla, Integer> CASILLA_ENTRADA_META = new HashMap<>() {{
-        put(ColorCasilla.ROJO, 68);   // ultima casilla antes del pasillo rojo
-        put(ColorCasilla.AZUL, 17);   // ultima casilla antes del pasillo azul
-        put(ColorCasilla.AMARILLO, 34);
-        put(ColorCasilla.VERDE, 51);
+        put(ColorCasilla.ROJO, 68);      // Última casilla antes del pasillo rojo
+        put(ColorCasilla.VERDE, 17);     // ✅ CORREGIDO (antes: 51)
+        put(ColorCasilla.AMARILLO, 34);  // Última casilla antes del pasillo amarillo
+        put(ColorCasilla.AZUL, 51);      // ✅ CORREGIDO (antes: 17)
     }};
     
     private List<Casilla> casillas;
@@ -67,24 +75,24 @@ public class Tablero {
             casillas.add(new Casilla(i, i, color, tipo, capacidad));
         }
         
-        // Casillas 69-72: pasillos/metas ROJO
-        for (int i = 69; i <= 72; i++) {
+        // Casillas 69-75: pasillos/metas ROJO (7 casillas)
+        for (int i = 69; i <= 75; i++) {
             casillas.add(new Casilla(i, 0, ColorCasilla.ROJO, TipoCasilla.META, 1));
         }
         
-        // Casillas 73-76: pasillos/metas AZUL
-        for (int i = 73; i <= 76; i++) {
-            casillas.add(new Casilla(i, 0, ColorCasilla.AZUL, TipoCasilla.META, 1));
+        // Casillas 76-82: pasillos/metas VERDE (7 casillas)
+        for (int i = 76; i <= 82; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.VERDE, TipoCasilla.META, 1));
         }
         
-        // ✅ NUEVO: Casillas 77-80: pasillos/metas AMARILLO
-        for (int i = 77; i <= 80; i++) {
+        // Casillas 83-89: pasillos/metas AMARILLO (7 casillas)
+        for (int i = 83; i <= 89; i++) {
             casillas.add(new Casilla(i, 0, ColorCasilla.AMARILLO, TipoCasilla.META, 1));
         }
         
-        // ✅ NUEVO: Casillas 81-84: pasillos/metas VERDE
-        for (int i = 81; i <= 84; i++) {
-            casillas.add(new Casilla(i, 0, ColorCasilla.VERDE, TipoCasilla.META, 1));
+        // Casillas 90-96: pasillos/metas AZUL (7 casillas)
+        for (int i = 90; i <= 96; i++) {
+            casillas.add(new Casilla(i, 0, ColorCasilla.AZUL, TipoCasilla.META, 1));
         }
   
     }
@@ -560,6 +568,7 @@ public class Tablero {
         json.add("casillas", casillasArr);
         return json;
     }
+    
     @Override
     public String toString() {
         return String.format("Tablero[%d casillas, %d jugadores registrados]", 

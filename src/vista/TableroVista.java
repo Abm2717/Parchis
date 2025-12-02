@@ -186,8 +186,8 @@ public class TableroVista extends JPanel {
 
         // fichas
         //g.drawImage(fichaRoja, x + 75, y + 510, 60, 60, this);
-        g.drawImage(fichaRoja, x + 130, y + 425, 60, 60, this);
-        g.drawImage(fichaRoja, x + 145, y + 510, 60, 60, this);
+        //g.drawImage(fichaRoja, x + 130, y + 415, 60, 60, this);
+        //g.drawImage(fichaRoja, x + 130, y + 385, 60, 60, this);
         g.drawImage(fichaRoja, x + 75, y + 570, 60, 60, this);
         g.drawImage(fichaRoja, x + 145, y + 570, 60, 60, this);
 
@@ -205,6 +205,34 @@ public class TableroVista extends JPanel {
         g.drawImage(fichaAmarilla, x + 576, y + 76, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 500, y + 150, 60, 60, this);
         g.drawImage(fichaAmarilla, x + 576, y + 150, 60, 60, this);
+        
+        
+        MapaCasillas mapa = new MapaCasillas(x, y);
+    
+        // Probar casilla 5 con 1 ficha
+        CoordenadaCasilla coord5 = mapa.obtenerCoordenadas(1);
+        CoordenadaCasilla coord2 = mapa.obtenerCoordenadas(59);
+        CoordenadaCasilla coord3 = mapa.obtenerCoordenadas(MapaCasillas.META_VERDE);
+        if (coord5 != null) {
+            int fichaX = x + coord5.getX(0);
+            int fichaY = y + coord5.getY(0);
+            g.drawImage(fichaRoja, fichaX, fichaY, 60, 60, this);
+            g.drawImage(fichaRoja, x + coord3.getX(1), y + coord3.getY(1), 60, 60, this);
+            g.drawImage(fichaRoja, x + coord3.getX(0), y + coord3.getY(0), 60, 60, this);
+            g.drawImage(fichaRoja, x + coord3.getX(2), y + coord3.getY(2), 60, 60, this);
+            g.drawImage(fichaRoja, x + coord3.getX(3), y + coord3.getY(3), 60, 60, this);
+        }
+
+        // Probar casilla 5 con 2 fichas
+        if (coord5 != null) {
+            int ficha1X = x + coord5.getX(0);
+            int ficha1Y = y + coord5.getY(0);
+            int ficha2X = x + coord5.getX(1);
+            int ficha2Y = y + coord5.getY(1);
+
+            g.drawImage(fichaRoja, ficha2X, ficha2Y, 60, 60, this);
+            
+        }
     }
 
     /** -----------------------------------------------------

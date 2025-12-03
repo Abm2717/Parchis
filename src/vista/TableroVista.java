@@ -2,6 +2,7 @@ package vista;
 
 import com.google.gson.JsonArray;
 import controlador.ClienteControlador;
+import controlador.ReglasValidador;  // ← NUEVO IMPORT
 import com.google.gson.JsonObject;
 import javax.swing.*;
 import java.awt.*;
@@ -13,7 +14,7 @@ import java.util.List;
 
 /**
  * Vista del tablero de Parchís con selección interactiva de fichas
- * ✅ ESTADO: Selección funcionando, bug de coordenadas de salida
+ * ✅ Usa ReglasValidador para validaciones de reglas
  */
 public class TableroVista extends JPanel {
     
@@ -234,37 +235,25 @@ public class TableroVista extends JPanel {
         }
     }
     
+    // ==================== USAR DADO (CORREGIDO - SIN ANIMACIÓN DUPLICADA) ====================
+    
     private void usarDado(int indiceDado) {
         if (fichaSeleccionada == null) return;
         if (dadosUsados[indiceDado]) return;
 
         int valorDado = dadosActuales[indiceDado];
-
         System.out.println("[TableroVista] Usando dado " + valorDado + " para mover ficha #" + fichaSeleccionada.getId());
 
         panelSeleccionDado.setVisible(false);
-
         dadosUsados[indiceDado] = true;
 
         boolean esDoble = (dadosActuales[0] == dadosActuales[1]);
+        boolean pasarTurno = esDoble ? false : (dadosUsados[0] && dadosUsados[1]);
+        
+        System.out.println("[TableroVista] Es doble: " + esDoble + ", pasar turno: " + pasarTurno);
 
-        // ✅ CRÍTICO: Determinar si se pasa turno
-        boolean pasarTurno = false;
-        if (esDoble) {
-            pasarTurno = false;
-            System.out.println("[TableroVista] Es doble, NO pasar turno");
-        } else {
-            pasarTurno = (dadosUsados[0] && dadosUsados[1]);
-            System.out.println("[TableroVista] NO es doble, pasar turno: " + pasarTurno);
-        }
-
-        // ✅ SOLUCIÓN: Delegar TODO al controlador (animación incluida)
-        // NO animar aquí, el controlador ya lo hace en moverFichaConUnDado()
-        controlador.moverFichaConUnDado(
-            fichaSeleccionada.getId(),
-            valorDado,
-            pasarTurno
-        );
+        // ✅ Delegar TODO al controlador (animación incluida)
+        controlador.moverFichaConUnDado(fichaSeleccionada.getId(), valorDado, pasarTurno);
 
         fichaSeleccionada = null;
         actualizarFichasMovibles();
@@ -284,6 +273,8 @@ public class TableroVista extends JPanel {
 
         return ficha.getPosicionCasilla();
     }
+    
+    // ==================== ACTUALIZAR FICHAS MOVIBLES (USA REGLASVALIDADOR) ====================
     
     private void actualizarFichasMovibles() {
         fichasMovibles.clear();
@@ -309,15 +300,34 @@ public class TableroVista extends JPanel {
 
             boolean puedeMoverse = false;
 
+            // ========== FICHAS EN CASA ==========
             if (ficha.estaEnCasa()) {
+                // Puede salir con un 5
                 if (dado1Disponible == 5 || dado2Disponible == 5) {
-                    puedeMoverse = true;
+                    // ✅ Usar ReglasValidador
+                    if (ReglasValidador.puedeSalirDeCasa(ficha.getCasillaSalida(), miColor, fichasEnTablero)) {
+                        puedeMoverse = true;
+                    } else {
+                        System.out.println("[VALIDACIÓN] No puede sacar ficha #" + ficha.getId() + 
+                                         " - salida tiene 2 fichas");
+                    }
                 }
+                // Puede salir con suma = 5
                 if (dado1Disponible + dado2Disponible == 5 && dado1Disponible > 0 && dado2Disponible > 0) {
+                    // ✅ Usar ReglasValidador
+                    if (ReglasValidador.puedeSalirDeCasa(ficha.getCasillaSalida(), miColor, fichasEnTablero)) {
+                        puedeMoverse = true;
+                    }
+                }
+            } 
+            // ========== FICHAS EN JUEGO ==========
+            else if (!ficha.estaEnMeta()) {
+                // Verificar con dado 1
+                if (dado1Disponible > 0 && ReglasValidador.puedeMoverse(ficha, dado1Disponible, fichasEnTablero)) {
                     puedeMoverse = true;
                 }
-            } else if (!ficha.estaEnMeta()) {
-                if (dado1Disponible > 0 || dado2Disponible > 0) {
+                // Verificar con dado 2
+                if (!puedeMoverse && dado2Disponible > 0 && ReglasValidador.puedeMoverse(ficha, dado2Disponible, fichasEnTablero)) {
                     puedeMoverse = true;
                 }
             }
@@ -549,6 +559,8 @@ public class TableroVista extends JPanel {
         });
     }
 
+    // ==================== AVANZAR CASILLA (USA REGLASVALIDADOR) ====================
+    
     public void avanzarCasilla(int fichaId) {
         SwingUtilities.invokeLater(() -> {
             FichaVisual ficha = mapaFichas.get(fichaId);
@@ -562,15 +574,21 @@ public class TableroVista extends JPanel {
                 return;
             }
 
-            int nuevaPosicion = ficha.getPosicionCasilla() + 1;
-
-            if (nuevaPosicion > 68) {
-                nuevaPosicion = 1;
-            }
+            int posicionActual = ficha.getPosicionCasilla();
+            String color = ficha.getColor();
+            
+            // ✅ Usar ReglasValidador para calcular nueva posición
+            int nuevaPosicion = ReglasValidador.avanzarUnaCasilla(posicionActual, color);
 
             ficha.setPosicionCasilla(nuevaPosicion);
 
             System.out.println("[TableroVista] Ficha #" + fichaId + " avanzó a casilla " + nuevaPosicion);
+
+            // ✅ Verificar si llegó a meta usando ReglasValidador
+            if (ReglasValidador.llegoAMeta(nuevaPosicion, color)) {
+                System.out.println("[TableroVista] Ficha #" + fichaId + " LLEGÓ A META!");
+                ficha.setEstaEnMeta(true);
+            }
 
             repaint();
         });

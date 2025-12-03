@@ -51,9 +51,9 @@ package vista;
     public int getCasillaSalida() {
         switch (color) {
             case "ROJO": return 1;
-            case "AMARILLO": return 18;
-            case "AZUL": return 35;
-            case "VERDE": return 52;
+            case "AMARILLO": return 35;
+            case "AZUL": return 52;
+            case "VERDE": return 18;
             default: return 1;
         }
     }

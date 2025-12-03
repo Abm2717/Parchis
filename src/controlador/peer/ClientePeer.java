@@ -3,38 +3,62 @@ package controlador.peer;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import vista.VistaCliente;
+import vista.TableroVista;
+import controlador.ClienteControlador;
 import java.io.*;
 import java.net.*;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ✅ ACTUALIZADO: Procesamiento completo de mensajes P2P de juego
- * - Recibe movimientos directamente de otros peers (10ms)
- * - Actualiza UI de forma optimista
- * - El servidor valida en paralelo (100ms)
+ * ✅ CORREGIDO: ClientePeer calcula movimientos localmente
+ * - Recibe movimientos de otros peers (10ms)
+ * - Actualiza UI inmediatamente (optimista)
+ * - NO espera confirmación del servidor
  */
 public class ClientePeer {
     
     private final int miPuertoPeer;
+    private int miJugadorId; // ✅ NUEVO: ID del jugador local
     private ServerSocket servidorPeer;
     private final Map<Integer, ConexionPeer> peerConectados;
     private boolean activo;
     private Thread hiloServidor;
-    private VistaCliente vista; // ✅ NUEVO: Referencia a la vista
+    private VistaCliente vista;
+    private TableroVista tableroVista; // ✅ NUEVO
+    private ClienteControlador controlador; // ✅ NUEVO
     
-    public ClientePeer(int puerto) {
+    public ClientePeer(int puerto, ClienteControlador controlador) {
         this.miPuertoPeer = puerto;
+        this.miJugadorId = -1; // Se asignará después
         this.peerConectados = new ConcurrentHashMap<>();
         this.activo = false;
         this.vista = null;
+        this.tableroVista = null;
+        this.controlador = controlador;
     }
     
     /**
-     * ✅ NUEVO: Asigna la vista para actualizar UI con mensajes P2P
+     * ✅ NUEVO: Asigna el ID del jugador local
+     */
+    public void setMiJugadorId(int jugadorId) {
+        this.miJugadorId = jugadorId;
+        System.out.println("[ClientePeer] Mi ID asignado: " + jugadorId);
+    }
+    
+    /**
+     * ✅ Asigna la vista de consola
      */
     public void setVista(VistaCliente vista) {
         this.vista = vista;
+    }
+    
+    /**
+     * ✅ NUEVO: Asigna la vista del tablero GUI
+     */
+    public void setTableroVista(TableroVista tableroVista) {
+        this.tableroVista = tableroVista;
+        System.out.println("[ClientePeer] TableroVista conectado");
     }
     
     public boolean iniciarServidorPeer() {
@@ -78,10 +102,34 @@ public class ClientePeer {
             BufferedReader entrada = new BufferedReader(
                 new InputStreamReader(socket.getInputStream(), "UTF-8")
             );
+            PrintWriter salida = new PrintWriter(
+                new OutputStreamWriter(socket.getOutputStream(), "UTF-8"),
+                true
+            );
             
-            String mensaje;
-            while ((mensaje = entrada.readLine()) != null) {
-                procesarMensajePeer(mensaje);
+            // ✅ CRÍTICO: Esperar mensaje de handshake con ID del peer
+            String primerMensaje = entrada.readLine();
+            if (primerMensaje != null) {
+                try {
+                    JsonObject json = JsonParser.parseString(primerMensaje).getAsJsonObject();
+                    if (json.has("tipo") && "handshake_peer".equals(json.get("tipo").getAsString())) {
+                        int peerId = json.get("jugadorId").getAsInt();
+                        
+                        // Registrar conexión entrante
+                        ConexionPeer conexion = new ConexionPeer(peerId, socket, entrada, salida);
+                        peerConectados.put(peerId, conexion);
+                        
+                        System.out.println("[P2P] Peer " + peerId + " conectado (entrante)");
+                        
+                        // Continuar escuchando mensajes de este peer
+                        String mensaje;
+                        while ((mensaje = entrada.readLine()) != null) {
+                            procesarMensajePeer(mensaje);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[P2P] Error en handshake: " + e.getMessage());
+                }
             }
             
         } catch (IOException e) {
@@ -104,6 +152,14 @@ public class ClientePeer {
                 new OutputStreamWriter(socket.getOutputStream(), "UTF-8"),
                 true
             );
+            
+            // ✅ CRÍTICO: Enviar handshake con mi ID
+            JsonObject handshake = new JsonObject();
+            handshake.addProperty("tipo", "handshake_peer");
+            handshake.addProperty("jugadorId", miJugadorId);
+            salida.println(handshake.toString());
+            salida.flush();
+            System.out.println("[P2P] Handshake enviado a peer " + jugadorId);
             
             ConexionPeer conexion = new ConexionPeer(jugadorId, socket, entrada, salida);
             peerConectados.put(jugadorId, conexion);
@@ -149,17 +205,27 @@ public class ClientePeer {
     }
     
     public void broadcastAPeers(String mensaje) {
+        int mensajesEnviados = 0;
         for (ConexionPeer conexion : peerConectados.values()) {
+            // ✅ CRÍTICO: NO enviar mensaje a uno mismo
+            if (conexion.jugadorId == miJugadorId) {
+                System.out.println("[P2P] Saltando envío a mí mismo (ID: " + miJugadorId + ")");
+                continue;
+            }
+            
             try {
                 conexion.salida.println(mensaje);
+                conexion.salida.flush(); // ✅ CRÍTICO: Forzar envío inmediato
+                mensajesEnviados++;
             } catch (Exception e) {
-                // Ignorar errores individuales
+                System.err.println("[P2P] Error enviando a peer " + conexion.jugadorId + ": " + e.getMessage());
             }
         }
+        System.out.println("[P2P] Broadcast enviado a " + mensajesEnviados + " peers (de " + peerConectados.size() + " conectados)");
     }
     
     /**
-     * ✅ ACTUALIZADO: Procesa mensajes P2P de juego en tiempo real
+     * ✅ CORREGIDO: Procesa mensajes P2P inmediatamente (sin esperar servidor)
      */
     private void procesarMensajePeer(String mensajeJson) {
         try {
@@ -168,7 +234,7 @@ public class ClientePeer {
             
             switch (tipo) {
                 case "tirada_dados_peer":
-                    // Otro jugador tiró dados (notificación P2P)
+                    // Notificación de dados (solo visual)
                     if (vista != null) {
                         String nombre = json.get("jugadorNombre").getAsString();
                         int dado1 = json.get("dado1").getAsInt();
@@ -180,21 +246,23 @@ public class ClientePeer {
                     break;
                     
                 case "movimiento_peer":
-                    // Movimiento de ficha (actualización optimista)
-                    if (vista != null) {
+                    // ✅ CRÍTICO: Procesar movimiento INMEDIATAMENTE
+                    if (controlador != null) {
                         String nombre = json.get("jugadorNombre").getAsString();
                         int fichaId = json.get("fichaId").getAsInt();
-                        int desde = json.get("desde").getAsInt();
-                        int hasta = json.get("hasta").getAsInt();
+                        String accion = json.get("accion").getAsString();
+                        int valorDado = json.get("valorDado").getAsInt();
                         
-                        System.out.println("[P2P] " + nombre + " movió ficha #" + fichaId + 
-                                         " (" + desde + " → " + hasta + ")");
-                        vista.mostrarMovimientoOtroJugador(nombre, fichaId, desde, hasta);
+                        System.out.println("[P2P RECV] " + nombre + " - " + accion + " ficha #" + fichaId + 
+                                         " con dado " + valorDado);
+                        
+                        // Delegar a ClienteControlador para actualizar UI
+                        controlador.procesarMovimientoPeerRecibido(nombre, fichaId, accion, valorDado);
                     }
                     break;
                     
                 case "captura_peer":
-                    // Captura de ficha
+                    // Notificación de captura
                     if (vista != null) {
                         String capturador = json.get("capturadorNombre").getAsString();
                         System.out.println("[P2P] " + capturador + " capturó una ficha!");
@@ -203,7 +271,7 @@ public class ClientePeer {
                     break;
                     
                 case "meta_peer":
-                    // Llegada a meta
+                    // Notificación de llegada a meta
                     if (vista != null) {
                         String jugador = json.get("jugadorNombre").getAsString();
                         System.out.println("[P2P] " + jugador + " llegó a la meta!");
@@ -212,7 +280,7 @@ public class ClientePeer {
                     break;
                     
                 case "cambio_turno_peer":
-                    // Cambio de turno
+                    // Notificación de cambio de turno
                     if (vista != null) {
                         String jugador = json.get("jugadorNombre").getAsString();
                         System.out.println("[P2P] Turno de: " + jugador);
@@ -227,6 +295,7 @@ public class ClientePeer {
             
         } catch (Exception e) {
             System.err.println("[ERROR P2P] Error procesando mensaje: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -259,9 +328,6 @@ public class ClientePeer {
         return activo;
     }
     
-    /**
-     * ✅ NUEVO: Obtiene número de peers conectados
-     */
     public int getNumeroPeersConectados() {
         return peerConectados.size();
     }

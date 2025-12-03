@@ -248,45 +248,8 @@ public class TableroVista extends JPanel {
 
         boolean esDoble = (dadosActuales[0] == dadosActuales[1]);
 
-        final FichaVisual fichaAMover = fichaSeleccionada;
-        boolean estaEnCasa = fichaAMover.estaEnCasa();
-
-        if (estaEnCasa) {
-            System.out.println("[TableroVista] Sacando ficha #" + fichaAMover.getId() + " de casa");
-
-            SwingUtilities.invokeLater(() -> {
-                sacarFicha(fichaAMover.getId());
-            });
-
-            int otroDadoIndex = (indiceDado == 0) ? 1 : 0;
-            int otroDadoValor = dadosActuales[otroDadoIndex];
-
-            if (valorDado == 5) {
-                System.out.println("[TableroVista] Usado 5 para sacar, dado consumido");
-            } else if (valorDado + otroDadoValor == 5) {
-                dadosUsados[otroDadoIndex] = true;
-                System.out.println("[TableroVista] Suma = 5, ambos dados consumidos");
-            }
-
-        } else {
-            System.out.println("[TableroVista] Moviendo ficha #" + fichaAMover.getId() + " " + valorDado + " casillas");
-
-            new Thread(() -> {
-                for (int i = 0; i < valorDado; i++) {
-                    try {
-                        Thread.sleep(150);
-                        SwingUtilities.invokeLater(() -> {
-                            avanzarCasilla(fichaAMover.getId());
-                        });
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }).start();
-        }
-
+        // ✅ CRÍTICO: Determinar si se pasa turno
         boolean pasarTurno = false;
-
         if (esDoble) {
             pasarTurno = false;
             System.out.println("[TableroVista] Es doble, NO pasar turno");
@@ -295,6 +258,8 @@ public class TableroVista extends JPanel {
             System.out.println("[TableroVista] NO es doble, pasar turno: " + pasarTurno);
         }
 
+        // ✅ SOLUCIÓN: Delegar TODO al controlador (animación incluida)
+        // NO animar aquí, el controlador ya lo hace en moverFichaConUnDado()
         controlador.moverFichaConUnDado(
             fichaSeleccionada.getId(),
             valorDado,
@@ -302,9 +267,7 @@ public class TableroVista extends JPanel {
         );
 
         fichaSeleccionada = null;
-
         actualizarFichasMovibles();
-
         repaint();
     }
     

@@ -11,7 +11,14 @@ import java.net.Socket;
 import javax.swing.SwingUtilities;
 
 /**
- * ✅ SIMPLIFICADO: P2P envía solo fichaId + acción, el receptor calcula localmente
+ * ✅ CORREGIDO: Comunicación P2P PRIMERO, servidor solo para validación
+ * 
+ * FLUJO:
+ * 1. Acción del jugador (tirar dados, mover ficha)
+ * 2. Enviar a PEERS inmediatamente (10ms)
+ * 3. Actualizar UI local
+ * 4. Enviar al SERVIDOR en background (validación)
+ * 5. Si servidor detecta conflicto → Corregir
  */
 public class ClienteControlador {
     
@@ -41,6 +48,11 @@ public class ClienteControlador {
     
     private String[] nombresGuardados = null;
     
+    // ✅ NUEVO: Sistema de tracking de movimientos procesados
+    private final java.util.Set<String> movimientosProcesados = 
+        java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    private static final long TIEMPO_CACHE_MOVIMIENTOS = 2000; // 2 segundos
+    
     public ClienteControlador(VistaCliente vista) {
         this.vista = vista;
         this.conectado = false;
@@ -66,6 +78,11 @@ public class ClienteControlador {
     public void setTableroVista(TableroVista tableroVista) {
         this.tableroVista = tableroVista;
         System.out.println("[ClienteControlador] TableroVista conectado");
+        
+        // ✅ Conectar TableroVista con ClientePeer para que procese movimientos P2P
+        if (clientePeer != null) {
+            clientePeer.setTableroVista(tableroVista);
+        }
     }
     
     public String[] getNombresGuardados() {
@@ -78,7 +95,7 @@ public class ClienteControlador {
             System.out.println("  Puerto P2P asignado automaticamente: " + miPuertoPeer);
             
             System.out.println("[DEBUG] Iniciando cliente peer...");
-            clientePeer = new ClientePeer(miPuertoPeer);
+            clientePeer = new ClientePeer(miPuertoPeer, this);
             clientePeer.setVista(vista);
             
             System.out.println("[DEBUG] Conectando al servidor " + ip + ":" + puerto);
@@ -193,12 +210,24 @@ public class ClienteControlador {
                         jugadorId = jugador.get("id").getAsInt();
                         nombreJugador = jugador.get("nombre").getAsString();
 
+                        // ✅ CRÍTICO: Asignar ID al ClientePeer para handshake
+                        if (clientePeer != null) {
+                            clientePeer.setMiJugadorId(jugadorId);
+                        }
+
                         notificarPuertoP2PAlServidor();
                     }
                     break;
 
                 case "info_peers":
-                    conectarAPeers(json.getAsJsonArray("peers"));
+                    System.out.println("[P2P DEBUG] Recibido info_peers");
+                    if (json.has("peers")) {
+                        JsonArray peersArray = json.getAsJsonArray("peers");
+                        System.out.println("[P2P DEBUG] Número de peers: " + peersArray.size());
+                        conectarAPeers(peersArray);
+                    } else {
+                        System.out.println("[P2P DEBUG] ❌ No hay campo 'peers' en el mensaje");
+                    }
                     break;
 
                 case "sala_creada":
@@ -213,6 +242,9 @@ public class ClienteControlador {
                     String nombre = json.get("nombre").getAsString();
                     int total = json.get("totalJugadores").getAsInt();
                     System.out.println("\n[INFO] " + nombre + " se unio a la partida (" + total + " jugadores)");
+                    
+                    // ✅ CRÍTICO: Solicitar info de peers actualizada
+                    solicitarInfoPeers();
                     break;
 
                 case "jugador_listo":
@@ -286,12 +318,10 @@ public class ClienteControlador {
                     break;
 
                 case "estado_tablero":
+                    // ✅ Solo guardar estado, NO actualizar UI (P2P ya lo hizo)
                     JsonObject tableroJson = json.getAsJsonObject("tablero");
                     ultimoEstadoTablero = tableroJson;
-
-                    if (vista != null) {
-                        vista.mostrarEstadoTablero(tableroJson);
-                    }
+                    System.out.println("[SERVIDOR] Estado tablero recibido (solo validación)");
                     break;
 
                 case "resultado_dados":
@@ -334,45 +364,48 @@ public class ClienteControlador {
                     break;
 
                 case "jugador_tiro_dados":
+                    // ✅ Ignorar - P2P ya lo procesó
                     break;
 
                 case "movimiento_exitoso":
+                    // ✅ Ignorar - P2P ya lo procesó
                     if (json.has("turnoTerminado") && json.get("turnoTerminado").getAsBoolean()) {
                         esmiTurno = false;
                     }
                     break;
 
                 case "ficha_movida":
+                    // ✅ CRÍTICO: SOLO procesar movimientos AUTOMÁTICOS del servidor
+                    // Los movimientos normales ya fueron procesados por P2P
+                    boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
+                    
+                    if (!automatico) {
+                        // ❌ Ignorar completamente - P2P ya lo procesó
+                        System.out.println("[SERVIDOR] Movimiento ignorado (P2P ya procesó)");
+                        break;
+                    }
+                    
+                    // ✅ Solo movimientos automáticos (doble 5, penalizaciones)
                     String nombreMov = json.get("jugadorNombre").getAsString();
                     int fichaId = json.get("fichaId").getAsInt();
                     int desde = json.get("desde").getAsInt();
                     int hasta = json.get("hasta").getAsInt();
-                    boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
-
-                    if (json.has("dadoDisponible")) {
-                        dadoDisponible = json.get("dadoDisponible").getAsInt();
-                        System.out.println("[DEBUG] Dado disponible después de mover: " + dadoDisponible);
-                    }
-
+                    
                     int jugadorIdMov = obtenerJugadorIdDesdeNombre(nombreMov);
                     String colorFicha = obtenerColorDesdeNombre(nombreMov);
                     int fichaVisualId = ((jugadorIdMov - 1) * 4) + fichaId;
 
-                    System.out.println("[SERVIDOR] Jugador " + nombreMov + " (ID " + jugadorIdMov + ") movió ficha #" + fichaId + " → fichaVisualId: " + fichaVisualId);
+                    System.out.println("[SERVIDOR AUTO] Jugador " + nombreMov + " movió ficha #" + fichaId);
 
                     if (tableroVista != null) {
                         tableroVista.actualizarColorFicha(fichaVisualId, colorFicha);
 
                         if (desde == -1) {
-                            System.out.println("[SERVIDOR] Sacando ficha #" + fichaVisualId + " color " + colorFicha);
                             tableroVista.sacarFicha(fichaVisualId);
                         } else if (hasta == -1) {
-                            System.out.println("[SERVIDOR] Ficha #" + fichaVisualId + " capturada");
                             tableroVista.mandarACasa(fichaVisualId);
                         } else {
                             int distancia = Math.abs(hasta - desde);
-                            System.out.println("[SERVIDOR] Moviendo ficha #" + fichaVisualId + " desde " + desde + " hasta " + hasta);
-
                             for (int i = 0; i < distancia; i++) {
                                 final int paso = i;
                                 final int idParaAnimar = fichaVisualId;
@@ -389,18 +422,14 @@ public class ClienteControlador {
                             }
                         }
                     }
-
-                    if (automatico) {
-                        if (vista != null) {
-                            vista.mostrarMovimientoAutomatico(nombreMov, fichaId, desde, hasta);
-                        }
-                    }
                     break;
 
                 case "ficha_capturada":
+                    // ✅ Ignorar - P2P ya lo procesó
                     break;
 
                 case "ficha_en_meta":
+                    // ✅ Ignorar - P2P ya lo procesó
                     break;
 
                 case "bonus_disponible":
@@ -472,6 +501,17 @@ public class ClienteControlador {
         System.out.println("[P2P] Conectado a " + clientePeer.getNumeroPeersConectados() + " peers");
     }
     
+    /**
+     * ✅ NUEVO: Solicita al servidor la lista actualizada de peers
+     */
+    private void solicitarInfoPeers() {
+        JsonObject solicitud = new JsonObject();
+        solicitud.addProperty("tipo", "solicitar_peers");
+        solicitud.addProperty("partidaId", partidaActualId);
+        enviarMensaje(solicitud);
+        System.out.println("[P2P] Solicitando info actualizada de peers");
+    }
+    
     private void responderPong() {
         JsonObject pong = new JsonObject();
         pong.addProperty("tipo", "pong");
@@ -479,37 +519,50 @@ public class ClienteControlador {
     }
     
     // ========================================
-    // ✅ NUEVO: Procesa movimientos P2P (SIMPLIFICADO)
+    // ✅ NUEVO: Métodos públicos para que ClientePeer procese movimientos
     // ========================================
     
     /**
-     * ✅ SIMPLIFICADO: Solo recibe fichaId + valorDado + acción
-     * El receptor calcula el movimiento localmente
+     * ✅ Llamado por ClientePeer cuando recibe movimiento de otro peer
      */
-    public void procesarMovimientoPeer(String nombreJugador, int fichaIdRelativa, String accion, int valorDado) {
+    public void procesarMovimientoPeerRecibido(String nombreJugador, int fichaIdRelativa, 
+                                               String accion, int valorDado) {
         if (tableroVista == null) return;
+        
+        // ✅ CRÍTICO: Ignorar mensajes propios (evita que un jugador procese sus propios mensajes P2P)
+        System.out.println("[DEBUG FILTRO] Mensaje de: '" + nombreJugador + "' | Mi nombre: '" + this.nombreJugador + "'");
+        
+        if (nombreJugador.equals(this.nombreJugador)) {
+            System.out.println("[P2P] ✅ IGNORANDO mensaje propio de " + nombreJugador);
+            return;
+        }
+        
+        System.out.println("[P2P] ✅ PROCESANDO mensaje de " + nombreJugador + " (es otro jugador)");
         
         int jugadorIdMov = obtenerJugadorIdDesdeNombre(nombreJugador);
         String colorFicha = obtenerColorDesdeNombre(nombreJugador);
         int fichaVisualId = ((jugadorIdMov - 1) * 4) + fichaIdRelativa;
         
-        System.out.println("[P2P] " + nombreJugador + " - Acción: " + accion + " ficha #" + fichaVisualId + " (relativa: " + fichaIdRelativa + ")");
+        System.out.println("[P2P RECV] " + nombreJugador + " - Acción: " + accion + 
+                         " ficha #" + fichaVisualId + " (relativa: " + fichaIdRelativa + ") dado: " + valorDado);
         
         tableroVista.actualizarColorFicha(fichaVisualId, colorFicha);
         
         if ("sacar".equals(accion)) {
-            // Sacar ficha de casa
             tableroVista.sacarFicha(fichaVisualId);
             
         } else if ("mover".equals(accion)) {
-            // Mover ficha (animar casilla por casilla)
+            System.out.println("[ANIMACIÓN P2P] Iniciando animación de " + valorDado + " casillas para ficha #" + fichaVisualId);
             for (int i = 0; i < valorDado; i++) {
                 final int paso = i;
                 final int idParaAnimar = fichaVisualId;
+                final int numeroPaso = i + 1;
+                System.out.println("[ANIMACIÓN P2P] Programando paso " + numeroPaso + "/" + valorDado);
                 new Thread(() -> {
                     try {
                         Thread.sleep(paso * 150);
                         SwingUtilities.invokeLater(() -> {
+                            System.out.println("[ANIMACIÓN P2P] Ejecutando paso " + numeroPaso + "/" + valorDado + " - avanzarCasilla(#" + idParaAnimar + ")");
                             tableroVista.avanzarCasilla(idParaAnimar);
                         });
                     } catch (InterruptedException e) {
@@ -517,11 +570,33 @@ public class ClienteControlador {
                     }
                 }).start();
             }
+            System.out.println("[ANIMACIÓN P2P] Todos los pasos programados");
             
         } else if ("capturar".equals(accion)) {
-            // Mandar a casa
             tableroVista.mandarACasa(fichaVisualId);
         }
+    }
+    
+    /**
+     * Limpia movimientos antiguos del cache (más de 2 segundos)
+     */
+    private void limpiarCacheMovimientos() {
+        // Ejecutar limpieza en thread separado para no bloquear
+        new Thread(() -> {
+            long tiempoActual = System.currentTimeMillis();
+            movimientosProcesados.removeIf(clave -> {
+                try {
+                    String[] partes = clave.split("_");
+                    if (partes.length >= 4) {
+                        long timestamp = Long.parseLong(partes[3]);
+                        return (tiempoActual - timestamp) > TIEMPO_CACHE_MOVIMIENTOS;
+                    }
+                } catch (Exception e) {
+                    // Ignorar errores de parsing
+                }
+                return false;
+            });
+        }).start();
     }
     
     private int obtenerJugadorIdDesdeNombre(String nombreJugador) {
@@ -630,15 +705,14 @@ public class ClienteControlador {
     }
     
     /**
-     * ✅ SIMPLIFICADO: Solo envía fichaId + valorDado + acción por P2P
+     * ✅ CORREGIDO: P2P PRIMERO, servidor después (en background)
      */
     public boolean moverFichaConUnDado(int fichaId, int valorDado, boolean pasarTurno) {
-        // ✅ Convertir a fichaRelativa (1-4)
         int fichaRelativa = ((fichaId - 1) % 4) + 1;
         
         System.out.println("[DEBUG] moverFichaConUnDado: fichaVisual=" + fichaId + " → fichaRelativa=" + fichaRelativa);
         
-        // ✅ Determinar acción según estado de la ficha
+        // Determinar acción
         String accion = "mover";
         if (tableroVista != null) {
             int posicionActual = tableroVista.obtenerPosicionFicha(fichaId);
@@ -647,23 +721,61 @@ public class ClienteControlador {
             }
         }
         
-        // ✅ Enviar mensaje P2P SIMPLIFICADO
+        // ✅ CRÍTICO: Registrar este movimiento para evitar procesarlo de vuelta
+        String claveMovimiento = nombreJugador + "_" + fichaRelativa + "_" + accion + "_" + System.currentTimeMillis();
+        movimientosProcesados.add(claveMovimiento);
+        System.out.println("[CACHE] Movimiento propio registrado: " + claveMovimiento);
+        
+        // Limpiar movimientos antiguos (más de 2 segundos)
+        limpiarCacheMovimientos();
+        
+        // ✅ PASO 1: Enviar a PEERS (inmediato, 10ms)
         enviarMovimientoAPeers(fichaRelativa, accion, valorDado);
         
-        // ✅ Enviar al servidor
-        JsonObject mensajeServidor = new JsonObject();
-        mensajeServidor.addProperty("tipo", "mover_ficha_un_dado");
-        mensajeServidor.addProperty("fichaId", fichaRelativa);
-        mensajeServidor.addProperty("valorDado", valorDado);
-        mensajeServidor.addProperty("pasarTurno", pasarTurno);
+        // ✅ PASO 2: Actualizar UI LOCAL (optimista)
+        if (tableroVista != null) {
+            if ("sacar".equals(accion)) {
+                tableroVista.sacarFicha(fichaId);
+            } else {
+                // Animar movimiento local
+                System.out.println("[ANIMACIÓN] Iniciando animación de " + valorDado + " casillas para ficha #" + fichaId);
+                for (int i = 0; i < valorDado; i++) {
+                    final int paso = i;
+                    final int numeroPaso = i + 1;
+                    System.out.println("[ANIMACIÓN] Programando paso " + numeroPaso + "/" + valorDado);
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(paso * 150);
+                            SwingUtilities.invokeLater(() -> {
+                                System.out.println("[ANIMACIÓN] Ejecutando paso " + numeroPaso + "/" + valorDado + " - avanzarCasilla(#" + fichaId + ")");
+                                tableroVista.avanzarCasilla(fichaId);
+                            });
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+                }
+                System.out.println("[ANIMACIÓN] Todos los pasos programados");
+            }
+        }
         
-        System.out.println("[DEBUG] Enviando al servidor: fichaRelativa=" + fichaRelativa + " valorDado=" + valorDado + " pasarTurno=" + pasarTurno);
+        // ✅ PASO 3: Enviar al SERVIDOR (en background, solo validación)
+        new Thread(() -> {
+            JsonObject mensajeServidor = new JsonObject();
+            mensajeServidor.addProperty("tipo", "mover_ficha_un_dado");
+            mensajeServidor.addProperty("fichaId", fichaRelativa);
+            mensajeServidor.addProperty("valorDado", valorDado);
+            mensajeServidor.addProperty("pasarTurno", pasarTurno);
+            
+            enviarMensaje(mensajeServidor);
+            System.out.println("[SERVIDOR] Validación enviada (background)");
+        }).start();
         
-        return enviarMensaje(mensajeServidor);
+        return true;
     }
     
     /**
-     * ✅ SIMPLIFICADO: Solo envía fichaId + acción + valorDado
+     * ✅ Envía movimiento a peers (simplificado)
      */
     private void enviarMovimientoAPeers(int fichaIdRelativa, String accion, int valorDado) {
         if (clientePeer == null) return;

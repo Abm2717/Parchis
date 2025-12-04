@@ -2,6 +2,8 @@ package controlador;
 
 import vista.FichaVisual;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Validador de reglas de Parchís
@@ -74,10 +76,49 @@ public class ReglasValidador {
     
     /**
      * Verifica si una ficha puede salir de casa
+     * REGLA: No puede sacar si ya tiene 2 fichas propias en la casilla de salida
+     * REGLA: No puede sacar si hay ficha enemiga en casilla segura (bloqueo)
+     * REGLA: SÍ puede sacar si hay ficha enemiga en casilla normal (captura)
      */
     public static boolean puedeSalirDeCasa(int casillaSalida, String color, 
                                            List<FichaVisual> todasLasFichas) {
-        return !destinoTieneDosFichasPropias(casillaSalida, color, todasLasFichas);
+        // Contar fichas en la casilla de salida
+        int fichasEnSalida = 0;
+        int fichasPropias = 0;
+        
+        for (FichaVisual ficha : todasLasFichas) {
+            if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
+            
+            if (ficha.getPosicionCasilla() == casillaSalida) {
+                fichasEnSalida++;
+                if (ficha.getColor().equals(color)) {
+                    fichasPropias++;
+                }
+            }
+        }
+        
+        // CASO 1: Salida vacía → puede sacar
+        if (fichasEnSalida == 0) {
+            return true;
+        }
+        
+        // CASO 2: Hay 1 ficha enemiga en casilla segura → NO puede sacar
+        if (fichasEnSalida == 1 && fichasPropias == 0 && esCasillaSegura(casillaSalida)) {
+            return false;
+        }
+        
+        // CASO 3: Hay 1 ficha enemiga en casilla normal → SÍ puede sacar (captura)
+        if (fichasEnSalida == 1 && fichasPropias == 0 && !esCasillaSegura(casillaSalida)) {
+            return true;
+        }
+        
+        // CASO 4: Ya tiene 2 fichas propias → NO puede sacar
+        if (fichasPropias >= 2) {
+            return false;
+        }
+        
+        // CASO 5: Tiene 1 ficha propia y puede agregar otra → SÍ puede sacar
+        return true;
     }
     
     // ==================== VALIDACIONES DE PASILLO ====================
@@ -166,17 +207,44 @@ public class ReglasValidador {
     // ==================== VALIDACIONES DE BARRERAS ====================
     
     /**
+     * Verifica si una casilla es segura
+     * Casillas seguras: salidas (1, 18, 35, 52) y otras 4 distribuidas en el tablero
+     */
+    public static boolean esCasillaSegura(int casilla) {
+        // Casillas de salida son seguras
+        if (casilla == 1 || casilla == 18 || casilla == 35 || casilla == 52) {
+            return true;
+        }
+        
+        // Otras casillas seguras (cada 17 casillas aproximadamente)
+        // Estas son las casillas seguras estándar en Parchís
+        if (casilla == 5 || casilla == 12 || casilla == 17 ||   // Entre rojo y azul
+            casilla == 22 || casilla == 29 || casilla == 34 ||  // Entre azul y amarillo
+            casilla == 39 || casilla == 46 || casilla == 51 ||  // Entre amarillo y verde
+            casilla == 56 || casilla == 63 || casilla == 68) {  // Entre verde y rojo
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Verifica si hay barrera en el camino
+     * REGLAS:
+     * - NO puedes pasar POR barrera (propia o enemiga) en casillas intermedias
+     * - NO puedes caer EN barrera (2+ fichas del mismo color)
+     * - En casillas seguras, pueden coexistir 2 fichas de diferente color
      */
     public static boolean hayBarreraEnCamino(int posicionActual, int valorDado, 
                                              String color, List<FichaVisual> todasLasFichas) {
         int posicion = posicionActual;
+        int destino = calcularDestino(posicionActual, valorDado, color);
         
         for (int i = 0; i < valorDado; i++) {
             posicion = avanzarUnaCasilla(posicion, color);
             
-            // No verificar barrera en el destino final
-            if (i < valorDado - 1 && hayBarrera(posicion, todasLasFichas)) {
+            // Verificar si hay barrera que bloquee el paso
+            if (hayBarreraBloqueante(posicion, color, todasLasFichas)) {
                 return true;
             }
         }
@@ -185,26 +253,66 @@ public class ReglasValidador {
     }
     
     /**
-     * Verifica si hay barrera en una casilla (2 fichas del mismo color)
+     * Verifica si hay una barrera que bloquea el paso de una ficha
+     * REGLA: Barrera = 2 fichas del mismo color
+     * REGLA: 1 ficha enemiga en casilla NORMAL = captura (NO bloquea)
+     * REGLA: 1 ficha enemiga en casilla SEGURA = coexistencia (NO bloquea)
+     * REGLA: 1 ficha propia = puede agregar otra (NO bloquea)
      */
-    public static boolean hayBarrera(int casilla, List<FichaVisual> todasLasFichas) {
-        int fichasEnCasilla = 0;
-        String colorEnCasilla = null;
+    private static boolean hayBarreraBloqueante(int casilla, String colorMoviendo, 
+                                                List<FichaVisual> todasLasFichas) {
+        // Contar fichas por color en esta casilla
+        Map<String, Integer> fichasPorColor = new HashMap<>();
         
         for (FichaVisual ficha : todasLasFichas) {
             if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
             
             if (ficha.getPosicionCasilla() == casilla) {
-                if (colorEnCasilla == null) {
-                    colorEnCasilla = ficha.getColor();
-                    fichasEnCasilla = 1;
-                } else if (colorEnCasilla.equals(ficha.getColor())) {
-                    fichasEnCasilla++;
-                }
+                String color = ficha.getColor();
+                fichasPorColor.put(color, fichasPorColor.getOrDefault(color, 0) + 1);
             }
         }
         
-        return fichasEnCasilla >= 2;
+        // Verificar si hay BARRERA (2+ fichas del mismo color)
+        for (Map.Entry<String, Integer> entry : fichasPorColor.entrySet()) {
+            if (entry.getValue() >= 2) {
+                // Hay barrera de este color → BLOQUEA
+                return true;
+            }
+        }
+        
+        // NO hay barrera (puede haber 0 o 1 ficha, pero eso NO bloquea)
+        // - Si hay 0 fichas → puede moverse
+        // - Si hay 1 ficha enemiga en casilla normal → captura (NO bloquea)
+        // - Si hay 1 ficha enemiga en casilla segura → coexiste (NO bloquea)
+        // - Si hay 1 ficha propia → puede agregar otra (NO bloquea)
+        return false;
+    }
+    
+    /**
+     * Verifica si hay barrera en una casilla (2 fichas del mismo color)
+     * NOTA: Este método verifica si existe una barrera, independientemente del color
+     */
+    public static boolean hayBarrera(int casilla, List<FichaVisual> todasLasFichas) {
+        Map<String, Integer> fichasPorColor = new HashMap<>();
+        
+        for (FichaVisual ficha : todasLasFichas) {
+            if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
+            
+            if (ficha.getPosicionCasilla() == casilla) {
+                String color = ficha.getColor();
+                fichasPorColor.put(color, fichasPorColor.getOrDefault(color, 0) + 1);
+            }
+        }
+        
+        // Verificar si algún color tiene 2+ fichas (barrera)
+        for (int count : fichasPorColor.values()) {
+            if (count >= 2) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     /**

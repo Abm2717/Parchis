@@ -1,9 +1,11 @@
 package vista;
 
 /**
- * Representa una ficha real del juego con su estado visual
+ * ✅ ACTUALIZADO: Soporte para bordes de bonus y fichas movibles
+ * - bordeBonus: true cuando la ficha puede usar bonus de captura
+ * - movible: true cuando la ficha puede moverse en el turno actual
  */
-    public class FichaVisual {
+public class FichaVisual {
     
     private int id;                    // ID único de la ficha (1-16)
     private int jugadorId;             // ID del jugador dueño
@@ -11,6 +13,10 @@ package vista;
     private int posicionCasilla;       // Índice de casilla actual (1-96, o -1 si en casa)
     private boolean estaEnCasa;        // true si está en casa
     private boolean estaEnMeta;        // true si llegó a meta
+    
+    // ✅ NUEVO: Estados visuales
+    private boolean movible = false;   // true si puede moverse (borde verde)
+    private boolean bordeBonus = false; // true si puede usar bonus (borde dorado)
     
     public FichaVisual(int id, int jugadorId, String color) {
         this.id = id;
@@ -21,7 +27,7 @@ package vista;
         this.estaEnMeta = false;
     }
     
-    // Getters y setters
+    // Getters y setters básicos
     public int getId() { return id; }
     public int getJugadorId() { return jugadorId; }
     public String getColor() { return color; }
@@ -45,6 +51,23 @@ package vista;
         this.color = color;
     }
     
+    // ✅ NUEVO: Getters y setters para estados visuales
+    public boolean isMovible() {
+        return movible;
+    }
+    
+    public void setMovible(boolean movible) {
+        this.movible = movible;
+    }
+    
+    public boolean tieneBordeBonus() {
+        return bordeBonus;
+    }
+    
+    public void setBordeBonus(boolean bordeBonus) {
+        this.bordeBonus = bordeBonus;
+    }
+    
     /**
      * Obtiene la casilla de salida según el color
      */
@@ -60,7 +83,7 @@ package vista;
     
     @Override
     public String toString() {
-        return String.format("Ficha[id=%d, color=%s, pos=%d, casa=%b, meta=%b]",
-            id, color, posicionCasilla, estaEnCasa, estaEnMeta);
+        return String.format("Ficha[id=%d, color=%s, pos=%d, casa=%b, meta=%b, movible=%b, bonus=%b]",
+            id, color, posicionCasilla, estaEnCasa, estaEnMeta, movible, bordeBonus);
     }
 }

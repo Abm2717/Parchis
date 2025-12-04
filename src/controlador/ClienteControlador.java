@@ -11,14 +11,10 @@ import java.net.Socket;
 import javax.swing.SwingUtilities;
 
 /**
- * ✅ CORREGIDO: Comunicación P2P PRIMERO, servidor solo para validación
- * 
- * FLUJO:
- * 1. Acción del jugador (tirar dados, mover ficha)
- * 2. Enviar a PEERS inmediatamente (10ms)
- * 3. Actualizar UI local
- * 4. Enviar al SERVIDOR en background (validación)
- * 5. Si servidor detecta conflicto → Corregir
+ * ✅ CORREGIDO: Procesamiento completo de capturas
+ * - Mueve ficha capturada a CASA
+ * - Aplica bonus +20 y marca fichas que pueden usarlo
+ * - Si ninguna ficha puede usar bonus → se pierde
  */
 public class ClienteControlador {
     
@@ -48,7 +44,7 @@ public class ClienteControlador {
     
     private String[] nombresGuardados = null;
     
-    // ✅ NUEVO: Sistema de tracking de movimientos procesados
+    // ✅ Sistema de tracking de movimientos procesados
     private final java.util.Set<String> movimientosProcesados = 
         java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     private static final long TIEMPO_CACHE_MOVIMIENTOS = 2000; // 2 segundos
@@ -374,9 +370,38 @@ public class ClienteControlador {
                     }
                     break;
 
+                // ✅ NUEVO: Procesar bonus de captura
+                case "aplicar_bonus_captura":
+                    int jugadorBonusId = json.get("jugadorId").getAsInt();
+                    String nombreBonus = json.get("jugadorNombre").getAsString();
+                    int bonusGanado = json.get("bonusGanado").getAsInt();
+                    int bonusTotal = json.get("bonusTotal").getAsInt();
+                    
+                    System.out.println("\n[BONUS] " + nombreBonus + " capturó una ficha: +" + bonusGanado + " casillas");
+                    
+                    // Si soy yo quien capturó
+                    if (jugadorBonusId == jugadorId && tableroVista != null) {
+                        tableroVista.mostrarMensajeBonus(bonusGanado);
+                        
+                        // Verificar si alguna ficha puede usar el bonus
+                        boolean algunaFichaPuedeUsarBonus = tableroVista.verificarFichasParaBonus(bonusGanado);
+                        
+                        if (!algunaFichaPuedeUsarBonus) {
+                            System.out.println("[BONUS] Ninguna ficha puede usar el bonus. Se pierde.");
+                            javax.swing.JOptionPane.showMessageDialog(
+                                tableroVista,
+                                "⚠️ Bonus de +20 casillas perdido.\nNinguna ficha puede usarlo (bloqueadas o en casa/meta).",
+                                "Bonus Perdido",
+                                javax.swing.JOptionPane.WARNING_MESSAGE
+                            );
+                        } else {
+                            System.out.println("[BONUS] Fichas marcadas para usar bonus de +" + bonusGanado + " casillas");
+                        }
+                    }
+                    break;
+
                 case "ficha_movida":
                     // ✅ CRÍTICO: SOLO procesar movimientos AUTOMÁTICOS del servidor
-                    // Los movimientos normales ya fueron procesados por P2P
                     boolean automatico = json.has("automatico") && json.get("automatico").getAsBoolean();
                     
                     if (!automatico) {
@@ -385,7 +410,7 @@ public class ClienteControlador {
                         break;
                     }
                     
-                    // ✅ Solo movimientos automáticos (doble 5, penalizaciones)
+                    // ✅ Solo movimientos automáticos (capturas, doble 5, penalizaciones)
                     String nombreMov = json.get("jugadorNombre").getAsString();
                     int fichaId = json.get("fichaId").getAsInt();
                     int desde = json.get("desde").getAsInt();
@@ -400,11 +425,21 @@ public class ClienteControlador {
                     if (tableroVista != null) {
                         tableroVista.actualizarColorFicha(fichaVisualId, colorFicha);
 
-                        if (desde == -1) {
-                            tableroVista.sacarFicha(fichaVisualId);
-                        } else if (hasta == -1) {
+                        // ✅ CAPTURA: desde=-2, hasta=-1 → MOVER A CASA
+                        if (desde == -2 && hasta == -1) {
+                            System.out.println("[CAPTURA] Ficha #" + fichaVisualId + " capturada → enviada a CASA");
                             tableroVista.mandarACasa(fichaVisualId);
-                        } else {
+                        }
+                        // Sacar de casa
+                        else if (desde == -1) {
+                            tableroVista.sacarFicha(fichaVisualId);
+                        }
+                        // Mover a casa normal
+                        else if (hasta == -1) {
+                            tableroVista.mandarACasa(fichaVisualId);
+                        }
+                        // Movimiento normal
+                        else {
                             int distancia = Math.abs(hasta - desde);
                             for (int i = 0; i < distancia; i++) {
                                 final int paso = i;
@@ -519,7 +554,7 @@ public class ClienteControlador {
     }
     
     // ========================================
-    // ✅ NUEVO: Métodos públicos para que ClientePeer procese movimientos
+    // ✅ Métodos públicos para que ClientePeer procese movimientos
     // ========================================
     
     /**
@@ -529,7 +564,7 @@ public class ClienteControlador {
                                                String accion, int valorDado) {
         if (tableroVista == null) return;
         
-        // ✅ CRÍTICO: Ignorar mensajes propios (evita que un jugador procese sus propios mensajes P2P)
+        // ✅ CRÍTICO: Ignorar mensajes propios
         System.out.println("[DEBUG FILTRO] Mensaje de: '" + nombreJugador + "' | Mi nombre: '" + this.nombreJugador + "'");
         
         if (nombreJugador.equals(this.nombreJugador)) {
@@ -581,7 +616,6 @@ public class ClienteControlador {
      * Limpia movimientos antiguos del cache (más de 2 segundos)
      */
     private void limpiarCacheMovimientos() {
-        // Ejecutar limpieza en thread separado para no bloquear
         new Thread(() -> {
             long tiempoActual = System.currentTimeMillis();
             movimientosProcesados.removeIf(clave -> {

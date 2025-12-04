@@ -12,9 +12,10 @@ import modelo.servicios.GestorMotores;
 import vista.VistaServidor;
 
 /**
- * ✅ MEJORADO: Soporte para mover fichas con un solo dado
- * - moverConUnDado(): Mueve una ficha con el valor de UN solo dado
- * - ejecutar(): Mantiene compatibilidad con movimientos usando ambos dados
+ * ✅ CORREGIDO: Notificación completa de capturas
+ * - Envía ficha capturada a CASA
+ * - Aplica bonus +20 casillas al capturador
+ * - Soporte para mover fichas con un solo dado
  */
 public class CtrlMoverFicha {
     
@@ -395,9 +396,16 @@ public class CtrlMoverFicha {
         );
     }
     
+    /**
+     * ✅ CORREGIDO: Notifica captura completa
+     * 1. Mensaje de captura
+     * 2. Envía ficha capturada a CASA
+     * 3. Aplica bonus +20 al capturador
+     */
     private void notificarCaptura(Partida partida, Jugador jugador, 
                                   MotorJuego.ResultadoMovimiento resultado, 
                                   ClienteHandler cliente) {
+        // 1️⃣ Notificar que hubo captura
         JsonObject notificacion = new JsonObject();
         notificacion.addProperty("tipo", "ficha_capturada");
         notificacion.addProperty("capturadorId", jugador.getId());
@@ -409,6 +417,38 @@ public class CtrlMoverFicha {
         cliente.getServidor().broadcastAPartida(
             partida.getId(), 
             notificacion.toString(), 
+            null
+        );
+        
+        // 2️⃣ ✅ NUEVO: Enviar ficha capturada a CASA
+        Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
+        JsonObject moverACasa = new JsonObject();
+        moverACasa.addProperty("tipo", "ficha_movida");
+        moverACasa.addProperty("jugadorId", capturado.getId());
+        moverACasa.addProperty("jugadorNombre", capturado.getNombre());
+        moverACasa.addProperty("fichaId", resultado.fichaCapturadaId);
+        moverACasa.addProperty("desde", -2);  // -2 = señal de captura
+        moverACasa.addProperty("hasta", -1);  // -1 = casa
+        moverACasa.addProperty("automatico", true);
+        
+        cliente.getServidor().broadcastAPartida(
+            partida.getId(),
+            moverACasa.toString(),
+            null
+        );
+        
+        // 3️⃣ ✅ NUEVO: Aplicar bonus +20 al capturador
+        JsonObject aplicarBonus = new JsonObject();
+        aplicarBonus.addProperty("tipo", "aplicar_bonus_captura");
+        aplicarBonus.addProperty("jugadorId", jugador.getId());
+        aplicarBonus.addProperty("jugadorNombre", jugador.getNombre());
+        aplicarBonus.addProperty("fichaCapturadaId", resultado.fichaCapturadaId);
+        aplicarBonus.addProperty("bonusGanado", resultado.bonusGanado);
+        aplicarBonus.addProperty("bonusTotal", resultado.bonusTotal);
+        
+        cliente.getServidor().broadcastAPartida(
+            partida.getId(),
+            aplicarBonus.toString(),
             null
         );
     }

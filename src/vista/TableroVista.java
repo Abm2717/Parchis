@@ -2,7 +2,7 @@ package vista;
 
 import com.google.gson.JsonArray;
 import controlador.ClienteControlador;
-import controlador.ReglasValidador;  // ← NUEVO IMPORT
+import controlador.ReglasValidador;  // ← IMPORT NECESARIO
 import com.google.gson.JsonObject;
 import javax.swing.*;
 import java.awt.*;
@@ -13,8 +13,10 @@ import java.util.Map;
 import java.util.List;
 
 /**
- * Vista del tablero de Parchís con selección interactiva de fichas
- * ✅ Usa ReglasValidador para validaciones de reglas
+ * ✅ ACTUALIZADO: Soporte para bonus de captura
+ * - Muestra mensaje cuando se captura ficha
+ * - Marca fichas que pueden usar bonus (borde dorado)
+ * - Pierde bonus si ninguna ficha puede usarlo
  */
 public class TableroVista extends JPanel {
     
@@ -59,6 +61,9 @@ public class TableroVista extends JPanel {
     private boolean[] dadosUsados = {false, false};
     private FichaVisual fichaSeleccionada = null;
     private List<FichaVisual> fichasMovibles = new ArrayList<>();
+    
+    // ✅ NUEVO: Sistema de bonus de captura
+    private int bonusActivoCantidad = 0;  // 0 = sin bonus, >0 = bonus disponible
     
     // Panel de selección de dados
     private JPanel panelSeleccionDado;
@@ -203,6 +208,26 @@ public class TableroVista extends JPanel {
         fichaSeleccionada = ficha;
         System.out.println("[TableroVista] Ficha seleccionada: #" + ficha.getId() + " (" + ficha.getColor() + ")");
         
+        // ✅ Si la ficha tiene bonus activo, mostrar solo el bonus
+        if (ficha.tieneBordeBonus() && bonusActivoCantidad > 0) {
+            System.out.println("[BONUS] Ficha con bonus seleccionada. Mostrando panel de bonus.");
+            
+            lblPregunta.setText("¿Usar bonus de captura?");
+            btnUsarDado1.setText("+" + bonusActivoCantidad);
+            btnUsarDado1.setEnabled(true);
+            btnUsarDado2.setEnabled(false);
+            btnUsarDado2.setVisible(false);  // Ocultar segundo botón
+            
+            panelSeleccionDado.setVisible(true);
+            repaint();
+            return;
+        }
+        
+        // ========== LÓGICA NORMAL DE DADOS ==========
+        
+        lblPregunta.setText("¿Mover con cuál dado?");
+        btnUsarDado2.setVisible(true);  // Asegurar que esté visible
+        
         btnUsarDado1.setEnabled(!dadosUsados[0]);
         btnUsarDado2.setEnabled(!dadosUsados[1]);
         
@@ -235,13 +260,77 @@ public class TableroVista extends JPanel {
         }
     }
     
-    // ==================== USAR DADO (CORREGIDO - SIN ANIMACIÓN DUPLICADA) ====================
+    // ==================== USAR DADO (✅ MODIFICADO: SOPORTE PARA BONUS) ====================
     
     private void usarDado(int indiceDado) {
         if (fichaSeleccionada == null) return;
+        
+        // ✅ DETECCIÓN DE BONUS: Si la ficha tiene borde dorado, usar bonus
+        if (fichaSeleccionada.tieneBordeBonus() && bonusActivoCantidad > 0) {
+            System.out.println("[BONUS] Usando bonus de +" + bonusActivoCantidad + " casillas en ficha #" + fichaSeleccionada.getId());
+            
+            // Validar que puede moverse con el bonus
+            if (!ReglasValidador.puedeMoverse(fichaSeleccionada, bonusActivoCantidad, fichasEnTablero)) {
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ No puedes usar el bonus. Hay una barrera bloqueando el camino o te pasarías de la meta.", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            panelSeleccionDado.setVisible(false);
+            
+            // ✅ Enviar movimiento con bonus al controlador
+            controlador.moverFichaConUnDado(fichaSeleccionada.getId(), bonusActivoCantidad, true);  // true = pasar turno
+            
+            // ✅ Limpiar bonus después de usarlo
+            bonusActivoCantidad = 0;
+            limpiarMarcasBonus();
+            
+            System.out.println("[BONUS] Bonus consumido. Pasando turno.");
+            
+            fichaSeleccionada = null;
+            actualizarFichasMovibles();
+            repaint();
+            return;
+        }
+        
+        // ========== LÓGICA NORMAL DE DADOS (sin bonus) ==========
+        
         if (dadosUsados[indiceDado]) return;
 
         int valorDado = dadosActuales[indiceDado];
+        
+        // ✅ VALIDAR que el movimiento es LEGAL antes de ejecutar
+        
+        // Si está en casa, validar que puede salir
+        if (fichaSeleccionada.estaEnCasa()) {
+            if (valorDado != 5) {
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ Necesitas un 5 para sacar la ficha de casa", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            if (!ReglasValidador.puedeSalirDeCasa(fichaSeleccionada.getCasillaSalida(), miColor, fichasEnTablero)) {
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ No puedes sacar ficha. Tu casilla de salida está bloqueada.", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        } else {
+            // Si está en tablero, validar que puede moverse con este dado
+            if (!ReglasValidador.puedeMoverse(fichaSeleccionada, valorDado, fichasEnTablero)) {
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ No puedes mover con este dado. Hay una barrera bloqueando el camino o te pasarías de la meta.", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        }
+        
         System.out.println("[TableroVista] Usando dado " + valorDado + " para mover ficha #" + fichaSeleccionada.getId());
 
         panelSeleccionDado.setVisible(false);
@@ -304,7 +393,6 @@ public class TableroVista extends JPanel {
             if (ficha.estaEnCasa()) {
                 // Puede salir con un 5
                 if (dado1Disponible == 5 || dado2Disponible == 5) {
-                    // ✅ Usar ReglasValidador
                     if (ReglasValidador.puedeSalirDeCasa(ficha.getCasillaSalida(), miColor, fichasEnTablero)) {
                         puedeMoverse = true;
                     } else {
@@ -314,7 +402,6 @@ public class TableroVista extends JPanel {
                 }
                 // Puede salir con suma = 5
                 if (dado1Disponible + dado2Disponible == 5 && dado1Disponible > 0 && dado2Disponible > 0) {
-                    // ✅ Usar ReglasValidador
                     if (ReglasValidador.puedeSalirDeCasa(ficha.getCasillaSalida(), miColor, fichasEnTablero)) {
                         puedeMoverse = true;
                     }
@@ -334,11 +421,77 @@ public class TableroVista extends JPanel {
 
             if (puedeMoverse) {
                 fichasMovibles.add(ficha);
+                ficha.setMovible(true);
+            } else {
+                ficha.setMovible(false);
             }
         }
 
         System.out.println("[TableroVista] Fichas movibles (" + miColor + "): " + fichasMovibles.size());
     }
+    
+    // ==================== ✅ NUEVOS MÉTODOS PARA BONUS ====================
+    
+    /**
+     * ✅ Muestra mensaje de bonus captura
+     */
+    public void mostrarMensajeBonus(int cantidadBonus) {
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(
+                this,
+                "🎉 ¡Capturaste una ficha!\n\n+" + cantidadBonus + " casillas de bonus.\nSelecciona una ficha para usar el bonus.",
+                "Bonus Captura",
+                JOptionPane.INFORMATION_MESSAGE
+            );
+        });
+    }
+    
+    /**
+     * ✅ Verifica qué fichas pueden usar el bonus
+     * Marca con borde DORADO las fichas que pueden usarlo
+     * 
+     * @param cantidadBonus Cantidad de casillas del bonus
+     * @return true si al menos una ficha puede usar el bonus
+     */
+    public boolean verificarFichasParaBonus(int cantidadBonus) {
+        boolean algunaFichaPuedeUsar = false;
+        
+        // ✅ Activar bonus
+        bonusActivoCantidad = cantidadBonus;
+        System.out.println("[BONUS] Bonus activado: +" + bonusActivoCantidad + " casillas");
+        
+        // Limpiar marcas previas de bonus
+        limpiarMarcasBonus();
+        
+        for (FichaVisual ficha : fichasEnTablero) {
+            if (!ficha.getColor().equals(miColor)) continue;
+            if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
+            
+            // Verificar si puede moverse con el bonus
+            if (ReglasValidador.puedeMoverse(ficha, cantidadBonus, fichasEnTablero)) {
+                ficha.setMovible(true);
+                ficha.setBordeBonus(true); // ✅ Marcar con borde dorado
+                algunaFichaPuedeUsar = true;
+                System.out.println("[BONUS] Ficha #" + ficha.getId() + " puede usar bonus");
+            }
+        }
+        
+        repaint();
+        return algunaFichaPuedeUsar;
+    }
+    
+    /**
+     * ✅ Limpia marcas de bonus y desactiva el bonus
+     */
+    public void limpiarMarcasBonus() {
+        bonusActivoCantidad = 0;  // ✅ Desactivar bonus
+        for (FichaVisual ficha : fichasEnTablero) {
+            ficha.setBordeBonus(false);
+        }
+        repaint();
+    }
+    
+    // ==================== FIN MÉTODOS BONUS ====================
     
     private void inicializarFichas() {
         fichasEnTablero.clear();
@@ -681,11 +834,14 @@ public class TableroVista extends JPanel {
     
     private void dibujarBordesFichas(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setStroke(new BasicStroke(4));
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
+        // Borde verde para fichas movibles (normal)
         g2d.setColor(new Color(0, 255, 0));
+        g2d.setStroke(new BasicStroke(4));
         for (FichaVisual ficha : fichasMovibles) {
             if (ficha.estaEnCasa()) continue;
+            if (ficha.tieneBordeBonus()) continue; // No pintar verde si tiene borde dorado
             
             CoordenadaCasilla coord = mapaCasillas.obtenerCoordenadas(ficha.getPosicionCasilla());
             if (coord == null) continue;
@@ -696,6 +852,29 @@ public class TableroVista extends JPanel {
             g2d.drawOval(x - 2, y - 2, 64, 64);
         }
         
+        // ✅ NUEVO: Borde dorado para fichas con bonus
+        for (FichaVisual ficha : fichasEnTablero) {
+            if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
+            if (!ficha.tieneBordeBonus()) continue;
+            
+            CoordenadaCasilla coord = mapaCasillas.obtenerCoordenadas(ficha.getPosicionCasilla());
+            if (coord == null) continue;
+            
+            int x = tableroOffsetX + coord.getX(0);
+            int y = tableroOffsetY + coord.getY(0);
+            
+            // Borde dorado principal
+            g2d.setColor(new Color(255, 215, 0)); // Dorado
+            g2d.setStroke(new BasicStroke(5));
+            g2d.drawOval(x - 3, y - 3, 66, 66);
+            
+            // Borde dorado brillante (efecto)
+            g2d.setColor(new Color(255, 255, 0, 150));
+            g2d.setStroke(new BasicStroke(7));
+            g2d.drawOval(x - 5, y - 5, 70, 70);
+        }
+        
+        // Borde azul para ficha seleccionada
         if (fichaSeleccionada != null && !fichaSeleccionada.estaEnCasa()) {
             g2d.setColor(new Color(0, 100, 255));
             g2d.setStroke(new BasicStroke(6));

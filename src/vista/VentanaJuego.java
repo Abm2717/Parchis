@@ -36,4 +36,4 @@ public class VentanaJuego extends JFrame {
             tableroVista.actualizarVista();
         }
     }
-}
+}   

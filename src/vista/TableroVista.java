@@ -167,18 +167,143 @@ public class TableroVista extends JPanel {
     // ==================== MANEJO DE CLICKS ====================
     
     private void manejarClickEnTablero(int x, int y) {
+        // ✅ DEBUG: Estado inicial
+        System.out.println("\n========== CLICK EN TABLERO ==========");
+        System.out.println("[DEBUG CLICK] Coordenadas: (" + x + ", " + y + ")");
+        System.out.println("[DEBUG CLICK] bonusActivoCantidad = " + bonusActivoCantidad);
+        System.out.println("[DEBUG CLICK] Dados actuales: [" + dadosActuales[0] + "][" + dadosActuales[1] + "]");
+        System.out.println("[DEBUG CLICK] Es mi turno: " + controlador.esmiTurno());
+
         if (dadosActuales[0] == 0 && dadosActuales[1] == 0) {
+            System.out.println("[DEBUG CLICK] Saliendo: dados en 0");
             return;
         }
-        
+
         if (!controlador.esmiTurno()) {
+            System.out.println("[DEBUG CLICK] Saliendo: no es mi turno");
             return;
         }
-        
+
         FichaVisual fichaClickeada = obtenerFichaEnPosicion(x, y);
-        
+        System.out.println("[DEBUG CLICK] Ficha clickeada: " + (fichaClickeada != null ? "#" + fichaClickeada.getId() : "null"));
+
+        if (fichaClickeada != null) {
+            System.out.println("[DEBUG CLICK] - Color: " + fichaClickeada.getColor());
+            System.out.println("[DEBUG CLICK] - En casa: " + fichaClickeada.estaEnCasa());
+            System.out.println("[DEBUG CLICK] - En meta: " + fichaClickeada.estaEnMeta());
+            System.out.println("[DEBUG CLICK] - Tiene borde bonus: " + fichaClickeada.tieneBordeBonus());
+            System.out.println("[DEBUG CLICK] - Es movible: " + fichasMovibles.contains(fichaClickeada));
+        }
+
+        // ✅ CASO 1: HAY BONUS ACTIVO
+        if (bonusActivoCantidad > 0) {
+            System.out.println("[DEBUG BONUS] *** BONUS ACTIVO: +" + bonusActivoCantidad + " ***");
+
+            if (fichaClickeada == null) {
+                System.out.println("[DEBUG BONUS] ERROR: No clickeaste ninguna ficha");
+                JOptionPane.showMessageDialog(this, 
+                    "Selecciona una ficha con borde DORADO para usar el bonus", 
+                    "Bonus activo", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            if (!fichaClickeada.tieneBordeBonus()) {
+                System.out.println("[DEBUG BONUS] ERROR: La ficha #" + fichaClickeada.getId() + " NO tiene borde dorado");
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ Debes seleccionar una ficha con borde DORADO para usar el bonus", 
+                    "Bonus activo", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            System.out.println("[DEBUG BONUS] ✅ Ficha válida para bonus: #" + fichaClickeada.getId());
+
+            if (fichaClickeada.estaEnCasa() || fichaClickeada.estaEnMeta()) {
+                System.out.println("[DEBUG BONUS] ERROR: Ficha en casa o meta");
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ Esta ficha no puede usar el bonus.", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            System.out.println("[DEBUG BONUS] Validando barreras...");
+            if (ReglasValidador.hayBarreraEnCamino(
+                    fichaClickeada.getPosicionCasilla(), 
+                    bonusActivoCantidad, 
+                    fichaClickeada.getColor(), 
+                    fichasEnTablero)) {
+                System.out.println("[DEBUG BONUS] ERROR: Hay barrera en el camino");
+                JOptionPane.showMessageDialog(this, 
+                    "⚠️ No puedes usar el bonus. Hay una barrera bloqueando el camino.", 
+                    "Movimiento inválido", 
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            System.out.println("[DEBUG BONUS] ✅ Validaciones pasadas, ejecutando movimiento...");
+
+            final int fichaId = fichaClickeada.getId();
+            final int cantidadBonus = bonusActivoCantidad;
+
+            boolean hayDadosDisponibles = !dadosUsados[0] || !dadosUsados[1];
+            boolean pasarTurno = !hayDadosDisponibles;
+
+            System.out.println("[BONUS] Dados disponibles: " + hayDadosDisponibles + ", pasar turno: " + pasarTurno);
+            System.out.println("[BONUS] Usando bonus de +" + cantidadBonus + " casillas en ficha #" + fichaId);
+
+            // ✅ ANIMACIÓN LOCAL
+            System.out.println("[ANIMACIÓN BONUS] Iniciando animación de " + cantidadBonus + " casillas");
+            for (int i = 0; i < cantidadBonus; i++) {
+                final int paso = i;
+                final int numeroPaso = i + 1;
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(paso * 150);
+                        SwingUtilities.invokeLater(() -> {
+                            System.out.println("[ANIMACIÓN BONUS] Paso " + numeroPaso + "/" + cantidadBonus);
+                            avanzarCasilla(fichaId);
+                        });
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }).start();
+            }
+
+            // ✅ ENVIAR A CONTROLADOR
+            System.out.println("[BONUS] Enviando al controlador...");
+            controlador.moverFichaConUnDado(fichaId, cantidadBonus, pasarTurno);
+
+            // ✅ LIMPIAR BONUS DESPUÉS DE UN DELAY (esperar a que la animación termine)
+            new Thread(() -> {
+                try {
+                    Thread.sleep((cantidadBonus * 150) + 500); // Esperar animación + margen
+                    SwingUtilities.invokeLater(() -> {
+                        bonusActivoCantidad = 0;
+                        limpiarMarcasBonus();
+                        System.out.println("[BONUS] Bonus consumido y limpiado (después de animación)");
+                    });
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+
+            fichaSeleccionada = null;
+            actualizarFichasMovibles();
+            repaint();
+            return;
+        }
+
+
+        // ✅ CASO 2: LÓGICA NORMAL (sin bonus)
+        System.out.println("[DEBUG CLICK] Procesando click normal (sin bonus)");
+
         if (fichaClickeada != null && fichasMovibles.contains(fichaClickeada)) {
+            System.out.println("[DEBUG CLICK] Ficha seleccionada para movimiento normal");
             seleccionarFicha(fichaClickeada);
+        } else {
+            System.out.println("[DEBUG CLICK] Ficha no es movible o es null");
         }
     }
     
@@ -260,43 +385,10 @@ public class TableroVista extends JPanel {
         }
     }
     
-    // ==================== USAR DADO (✅ MODIFICADO: SOPORTE PARA BONUS) ====================
+    // ==================== USAR DADO (LÓGICA NORMAL DE DADOS) ====================
     
     private void usarDado(int indiceDado) {
         if (fichaSeleccionada == null) return;
-        
-        // ✅ DETECCIÓN DE BONUS: Si la ficha tiene borde dorado, usar bonus
-        if (fichaSeleccionada.tieneBordeBonus() && bonusActivoCantidad > 0) {
-            System.out.println("[BONUS] Usando bonus de +" + bonusActivoCantidad + " casillas en ficha #" + fichaSeleccionada.getId());
-            
-            // Validar que puede moverse con el bonus
-            if (!ReglasValidador.puedeMoverse(fichaSeleccionada, bonusActivoCantidad, fichasEnTablero)) {
-                JOptionPane.showMessageDialog(this, 
-                    "⚠️ No puedes usar el bonus. Hay una barrera bloqueando el camino o te pasarías de la meta.", 
-                    "Movimiento inválido", 
-                    JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            
-            panelSeleccionDado.setVisible(false);
-            
-            // ✅ Enviar movimiento con bonus al controlador
-            controlador.moverFichaConUnDado(fichaSeleccionada.getId(), bonusActivoCantidad, true);  // true = pasar turno
-            
-            // ✅ Limpiar bonus después de usarlo
-            bonusActivoCantidad = 0;
-            limpiarMarcasBonus();
-            
-            System.out.println("[BONUS] Bonus consumido. Pasando turno.");
-            
-            fichaSeleccionada = null;
-            actualizarFichasMovibles();
-            repaint();
-            return;
-        }
-        
-        // ========== LÓGICA NORMAL DE DADOS (sin bonus) ==========
-        
         if (dadosUsados[indiceDado]) return;
 
         int valorDado = dadosActuales[indiceDado];
@@ -454,28 +546,45 @@ public class TableroVista extends JPanel {
      * @return true si al menos una ficha puede usar el bonus
      */
     public boolean verificarFichasParaBonus(int cantidadBonus) {
+        System.out.println("\n========== VERIFICAR FICHAS PARA BONUS ==========");
+        System.out.println("[BONUS VERIFICAR] Cantidad bonus: " + cantidadBonus);
+
         boolean algunaFichaPuedeUsar = false;
-        
+
         // ✅ Activar bonus
         bonusActivoCantidad = cantidadBonus;
-        System.out.println("[BONUS] Bonus activado: +" + bonusActivoCantidad + " casillas");
-        
-        // Limpiar marcas previas de bonus
-        limpiarMarcasBonus();
-        
+        System.out.println("[BONUS VERIFICAR] bonusActivoCantidad establecido en: " + bonusActivoCantidad);
+
+       
+
+        int fichasRevisadas = 0;
+        int fichasMarcadas = 0;
+
         for (FichaVisual ficha : fichasEnTablero) {
             if (!ficha.getColor().equals(miColor)) continue;
             if (ficha.estaEnCasa() || ficha.estaEnMeta()) continue;
-            
+
+            fichasRevisadas++;
+            System.out.println("[BONUS VERIFICAR] Revisando ficha #" + ficha.getId() + 
+                              " posición: " + ficha.getPosicionCasilla());
+
             // Verificar si puede moverse con el bonus
             if (ReglasValidador.puedeMoverse(ficha, cantidadBonus, fichasEnTablero)) {
                 ficha.setMovible(true);
-                ficha.setBordeBonus(true); // ✅ Marcar con borde dorado
+                ficha.setBordeBonus(true);
                 algunaFichaPuedeUsar = true;
-                System.out.println("[BONUS] Ficha #" + ficha.getId() + " puede usar bonus");
+                fichasMarcadas++;
+                System.out.println("[BONUS VERIFICAR] ✅ Ficha #" + ficha.getId() + " PUEDE usar bonus (marcada con borde dorado)");
+            } else {
+                System.out.println("[BONUS VERIFICAR] ❌ Ficha #" + ficha.getId() + " NO puede usar bonus");
             }
         }
-        
+
+        System.out.println("[BONUS VERIFICAR] Resultado: " + fichasRevisadas + " fichas revisadas, " + 
+                          fichasMarcadas + " marcadas con borde dorado");
+        System.out.println("[BONUS VERIFICAR] algunaFichaPuedeUsar = " + algunaFichaPuedeUsar);
+        System.out.println("===============================================\n");
+
         repaint();
         return algunaFichaPuedeUsar;
     }

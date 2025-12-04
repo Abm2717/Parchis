@@ -15,6 +15,8 @@ import javax.swing.SwingUtilities;
  * - Mueve ficha capturada a CASA
  * - Aplica bonus +20 y marca fichas que pueden usarlo
  * - Si ninguna ficha puede usar bonus → se pierde
+ * 
+ * ✅ FIX CRÍTICO: Verificar fichas ANTES de mostrar popup bloqueante
  */
 public class ClienteControlador {
     
@@ -370,34 +372,54 @@ public class ClienteControlador {
                     }
                     break;
 
-                // ✅ NUEVO: Procesar bonus de captura
+                // ✅ CORREGIDO: Procesar bonus de captura
                 case "aplicar_bonus_captura":
+                    System.out.println("\n========== MENSAJE SERVIDOR: aplicar_bonus_captura ==========");
                     int jugadorBonusId = json.get("jugadorId").getAsInt();
                     String nombreBonus = json.get("jugadorNombre").getAsString();
                     int bonusGanado = json.get("bonusGanado").getAsInt();
                     int bonusTotal = json.get("bonusTotal").getAsInt();
-                    
-                    System.out.println("\n[BONUS] " + nombreBonus + " capturó una ficha: +" + bonusGanado + " casillas");
-                    
+
+                    System.out.println("[BONUS] jugadorBonusId: " + jugadorBonusId);
+                    System.out.println("[BONUS] Mi jugadorId: " + jugadorId);
+                    System.out.println("[BONUS] nombreBonus: " + nombreBonus);
+                    System.out.println("[BONUS] bonusGanado: " + bonusGanado);
+                    System.out.println("[BONUS] Es mi bonus: " + (jugadorBonusId == jugadorId));
+    
                     // Si soy yo quien capturó
-                    if (jugadorBonusId == jugadorId && tableroVista != null) {
-                        tableroVista.mostrarMensajeBonus(bonusGanado);
-                        
-                        // Verificar si alguna ficha puede usar el bonus
-                        boolean algunaFichaPuedeUsarBonus = tableroVista.verificarFichasParaBonus(bonusGanado);
-                        
-                        if (!algunaFichaPuedeUsarBonus) {
-                            System.out.println("[BONUS] Ninguna ficha puede usar el bonus. Se pierde.");
-                            javax.swing.JOptionPane.showMessageDialog(
-                                tableroVista,
-                                "⚠️ Bonus de +20 casillas perdido.\nNinguna ficha puede usarlo (bloqueadas o en casa/meta).",
-                                "Bonus Perdido",
-                                javax.swing.JOptionPane.WARNING_MESSAGE
-                            );
+                    if (jugadorBonusId == jugadorId) {
+                        System.out.println("[BONUS] ✅ SOY YO quien capturó");
+
+                        if (tableroVista == null) {
+                            System.err.println("[BONUS] ❌ ERROR: tableroVista es NULL");
                         } else {
-                            System.out.println("[BONUS] Fichas marcadas para usar bonus de +" + bonusGanado + " casillas");
+                            System.out.println("[BONUS] tableroVista OK, llamando verificarFichasParaBonus()");
+
+                            // ✅ VERIFICAR fichas ANTES del popup
+                            boolean algunaFichaPuedeUsarBonus = tableroVista.verificarFichasParaBonus(bonusGanado);
+
+                            System.out.println("[BONUS] Resultado verificación: " + algunaFichaPuedeUsarBonus);
+
+                            // ✅ MOSTRAR popup SIN bloquear
+                            SwingUtilities.invokeLater(() -> {
+                                if (!algunaFichaPuedeUsarBonus) {
+                                    System.out.println("[BONUS] Ninguna ficha puede usar el bonus. Mostrando popup de pérdida.");
+                                    javax.swing.JOptionPane.showMessageDialog(
+                                        tableroVista,
+                                        "⚠️ Bonus de +20 casillas perdido.\nNinguna ficha puede usarlo (bloqueadas o en casa/meta).",
+                                        "Bonus Perdido",
+                                        javax.swing.JOptionPane.WARNING_MESSAGE
+                                    );
+                                } else {
+                                    System.out.println("[BONUS] Mostrando popup informativo (bonus activado)");
+                                    tableroVista.mostrarMensajeBonus(bonusGanado);
+                                }
+                            });
                         }
+                    } else {
+                        System.out.println("[BONUS] Es el bonus de otro jugador: " + nombreBonus);
                     }
+                    System.out.println("=========================================================\n");
                     break;
 
                 case "ficha_movida":

@@ -385,10 +385,15 @@ public class ClienteControlador {
                     System.out.println("[BONUS] nombreBonus: " + nombreBonus);
                     System.out.println("[BONUS] bonusGanado: " + bonusGanado);
                     System.out.println("[BONUS] Es mi bonus: " + (jugadorBonusId == jugadorId));
-    
+
                     // Si soy yo quien capturó
                     if (jugadorBonusId == jugadorId) {
                         System.out.println("[BONUS] ✅ SOY YO quien capturó");
+
+                        // ✅✅✅ RETENER EL TURNO ✅✅✅
+                        esmiTurno = true;
+                        System.out.println("[BONUS] 🎯 Turno retenido (esmiTurno = true)");
+                        // ✅✅✅ FIN ✅✅✅
 
                         if (tableroVista == null) {
                             System.err.println("[BONUS] ❌ ERROR: tableroVista es NULL");
@@ -410,6 +415,11 @@ public class ClienteControlador {
                                         "Bonus Perdido",
                                         javax.swing.JOptionPane.WARNING_MESSAGE
                                     );
+                                    // ✅ SI NO PUEDE USAR, PASAR TURNO
+                                    esmiTurno = false;
+                                    JsonObject pasarTurno = new JsonObject();
+                                    pasarTurno.addProperty("tipo", "pasar_turno");
+                                    enviarMensaje(pasarTurno);
                                 } else {
                                     System.out.println("[BONUS] Mostrando popup informativo (bonus activado)");
                                     tableroVista.mostrarMensajeBonus(bonusGanado);
@@ -420,7 +430,8 @@ public class ClienteControlador {
                         System.out.println("[BONUS] Es el bonus de otro jugador: " + nombreBonus);
                     }
                     System.out.println("=========================================================\n");
-                    break;
+                        break;
+                    
 
                 case "ficha_movida":
                     // ✅ CRÍTICO: SOLO procesar movimientos AUTOMÁTICOS del servidor

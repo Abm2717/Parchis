@@ -254,22 +254,22 @@ public class TableroVista extends JPanel {
             System.out.println("[BONUS] Usando bonus de +" + cantidadBonus + " casillas en ficha #" + fichaId);
 
             // ✅ ANIMACIÓN LOCAL
-            System.out.println("[ANIMACIÓN BONUS] Iniciando animación de " + cantidadBonus + " casillas");
-            for (int i = 0; i < cantidadBonus; i++) {
-                final int paso = i;
-                final int numeroPaso = i + 1;
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(paso * 150);
-                        SwingUtilities.invokeLater(() -> {
-                            System.out.println("[ANIMACIÓN BONUS] Paso " + numeroPaso + "/" + cantidadBonus);
-                            avanzarCasilla(fichaId);
-                        });
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }).start();
-            }
+//            System.out.println("[ANIMACIÓN BONUS] Iniciando animación de " + cantidadBonus + " casillas");
+//            for (int i = 0; i < cantidadBonus; i++) {
+//                final int paso = i;
+//                final int numeroPaso = i + 1;
+//                new Thread(() -> {
+//                    try {
+//                        Thread.sleep(paso * 150);
+//                        SwingUtilities.invokeLater(() -> {
+//                            System.out.println("[ANIMACIÓN BONUS] Paso " + numeroPaso + "/" + cantidadBonus);
+//                            avanzarCasilla(fichaId);
+//                        });
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                }).start();
+//            }
 
             // ✅ ENVIAR A CONTROLADOR
             System.out.println("[BONUS] Enviando al controlador...");

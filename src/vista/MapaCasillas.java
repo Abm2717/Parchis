@@ -1,7 +1,14 @@
 package vista;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.util.HashMap;
 import java.util.Map;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 public class MapaCasillas {
     
@@ -295,25 +302,25 @@ public class MapaCasillas {
         // ----------------------------------------------------------------
 
         // CASILLA 83: Primera del pasillo amarillo
-        coordenadas.put(83, new CoordenadaCasilla(452, 300, 452, 338));
+        coordenadas.put(83, new CoordenadaCasilla(602, 300, 452, 338));
 
         // CASILLA 84
-        coordenadas.put(84, new CoordenadaCasilla(422, 300, 422, 338));
+        coordenadas.put(84, new CoordenadaCasilla(572, 300, 422, 338));
 
         // CASILLA 85
-        coordenadas.put(85, new CoordenadaCasilla(392, 300, 392, 338));
+        coordenadas.put(85, new CoordenadaCasilla(542, 300, 392, 338));
 
         // CASILLA 86
-        coordenadas.put(86, new CoordenadaCasilla(362, 300, 362, 338));
+        coordenadas.put(86, new CoordenadaCasilla(512, 300, 362, 338));
 
         // CASILLA 87
-        coordenadas.put(87, new CoordenadaCasilla(332, 300, 332, 338));
+        coordenadas.put(87, new CoordenadaCasilla(482, 300, 332, 338));
 
         // CASILLA 88
-        coordenadas.put(88, new CoordenadaCasilla(302, 300, 302, 338));
+        coordenadas.put(88, new CoordenadaCasilla(452, 300, 302, 338));
 
         // CASILLA 89: Última del pasillo amarillo (antes de meta)
-        coordenadas.put(89, new CoordenadaCasilla(272, 300, 272, 338));
+        coordenadas.put(89, new CoordenadaCasilla(422, 300, 272, 338));
 
         // ----------------------------------------------------------------
         // PASILLO AZUL (90-96): De arriba hacia el CENTRO (horizontal ←)
@@ -385,4 +392,79 @@ public class MapaCasillas {
     public boolean existeCasilla(int indiceCasilla) {
         return coordenadas.containsKey(indiceCasilla);
     }
+    public static void main(String[] args) {
+    SwingUtilities.invokeLater(() -> {
+        JFrame frame = new JFrame("Probador de MapaCasillas");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(900, 900);
+
+        JPanel panel = new JPanel() {
+            MapaCasillas mapa = new MapaCasillas(0, 0);
+            int casillaActual = 1;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g;
+
+                g.setFont(new Font("Arial", Font.BOLD, 12));
+
+                // Dibujar TODAS las casillas
+                for (int i = 1; i <= 96; i++) {
+                    CoordenadaCasilla c = mapa.obtenerCoordenadas(i);
+                    if (c == null) continue;
+
+                    int x = c.getX(0);
+                    int y = c.getY(0);
+
+                    g.setColor(Color.LIGHT_GRAY);
+                    g.fillRect(x - 10, y - 10, 20, 20);
+
+                    g.setColor(Color.BLACK);
+                    g.drawRect(x - 10, y - 10, 20, 20);
+                    g.drawString(String.valueOf(i), x - 5, y - 15);
+                }
+
+                // Dibujar casilla ACTUAL en ROJO
+                CoordenadaCasilla c = mapa.obtenerCoordenadas(casillaActual);
+                if (c != null) {
+                    int x = c.getX(0);
+                    int y = c.getY(0);
+
+                    g.setColor(Color.RED);
+                    g.fillOval(x - 8, y - 8, 16, 16);
+
+                    g.drawString("CASILLA " + casillaActual + 
+                                 " → (" + x + "," + y + ")", 
+                                 20, 20);
+                }
+            }
+
+            {
+                // Teclas para navegar casillas
+                setFocusable(true);
+                addKeyListener(new java.awt.event.KeyAdapter() {
+                    @Override
+                    public void keyPressed(java.awt.event.KeyEvent e) {
+                        if (e.getKeyCode() == java.awt.event.KeyEvent.VK_RIGHT) {
+                            if (casillaActual < 96) casillaActual++;
+                        } else if (e.getKeyCode() == java.awt.event.KeyEvent.VK_LEFT) {
+                            if (casillaActual > 1) casillaActual--;
+                        }
+                        CoordenadaCasilla c = mapa.obtenerCoordenadas(casillaActual);
+                        if (c != null) {
+                            System.out.println("Casilla " + casillaActual +
+                                ": X=" + c.getX(0) + "  Y=" + c.getY(0));
+                        }
+                        repaint();
+                    }
+                });
+            }
+        };
+
+        frame.add(panel);
+        frame.setVisible(true);
+    });
+}
+
 }

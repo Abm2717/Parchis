@@ -94,10 +94,10 @@ public class RegistrarJugador extends JFrame {
         panel.add(lblAvatar);
 
         // Rutas de avatares (puedes cambiarlas)
-        String rutaAvatar1 = "/vista/recursos/pp.png";
-        String rutaAvatar2 = "/vista/recursos/pp.png";
-        String rutaAvatar3 = "/vista/recursos/pp.png";
-        String rutaAvatar4 = "/vista/recursos/pp.png";
+        String rutaAvatar1 = "/vista/recursos/tung.jpg";
+        String rutaAvatar2 = "/vista/recursos/boneca.jpg";
+        String rutaAvatar3 = "/vista/recursos/banana.jpg";
+        String rutaAvatar4 = "/vista/recursos/brbr.jpg";
 
         avatar1 = crearAvatar(rutaAvatar1);
         avatar2 = crearAvatar(rutaAvatar2);

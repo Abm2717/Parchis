@@ -29,7 +29,11 @@ public class TableroVista extends JPanel {
     private Image tablero;
     private Image fichaRoja, fichaAzul, fichaVerde, fichaAmarilla;
     private Image[] imagenesDados;
-    private Image perfilJugador;
+
+    private Image avatarRojo;
+    private Image avatarAzul;
+    private Image avatarVerde;
+    private Image avatarAmarillo;
     
     // Componentes UI
     private JLabel lblDado1;
@@ -640,34 +644,40 @@ public class TableroVista extends JPanel {
     }
     
     private void cargarRecursos() {
-        try {
-            fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
-            tablero = new ImageIcon(getClass().getResource("/vista/recursos/TAB.png")).getImage();
-            fichaRoja = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FR.png")).getImage();
-            fichaAzul = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FAZ.png")).getImage();
-            fichaVerde = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FV.png")).getImage();
-            fichaAmarilla = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FA.png")).getImage();
-            
-            imagenesDados = new Image[7];
-            for (int i = 1; i <= 6; i++) {
-                imagenesDados[i] = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + i + ".png")).getImage();
-            }
-            
-            perfilJugador = new ImageIcon(getClass().getResource("/vista/recursos/logoP.png")).getImage();
-            
-            System.out.println("[TableroVista] Recursos cargados exitosamente");
-            
-        } catch (Exception e) {
-            System.err.println("[ERROR] Error cargando recursos: " + e.getMessage());
-            e.printStackTrace();
+    try {
+        fondo = new ImageIcon(getClass().getResource("/vista/recursos/fondo.jpg")).getImage();
+        tablero = new ImageIcon(getClass().getResource("/vista/recursos/TAB.png")).getImage();
+        fichaRoja = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FR.png")).getImage();
+        fichaAzul = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FAZ.png")).getImage();
+        fichaVerde = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FV.png")).getImage();
+        fichaAmarilla = new ImageIcon(getClass().getResource("/vista/recursos/FICHAS_FA.png")).getImage();
+        
+        imagenesDados = new Image[7];
+        for (int i = 1; i <= 6; i++) {
+            imagenesDados[i] = new ImageIcon(getClass().getResource("/vista/recursos/DADOS_D" + i + ".png")).getImage();
         }
+        
+        // ✅ NUEVO: Cargar avatares individuales
+        avatarRojo = new ImageIcon(getClass().getResource("/vista/recursos/tung.jpg")).getImage();
+        avatarAzul = new ImageIcon(getClass().getResource("/vista/recursos/boneca.jpg")).getImage();
+        avatarVerde = new ImageIcon(getClass().getResource("/vista/recursos/banana.jpg")).getImage();
+        avatarAmarillo = new ImageIcon(getClass().getResource("/vista/recursos/brbr.jpg")).getImage();
+        
+        System.out.println("[TableroVista] Recursos cargados exitosamente (incluyendo avatares personalizados)");
+        
+    } catch (Exception e) {
+        System.err.println("[ERROR] Error cargando recursos: " + e.getMessage());
+        e.printStackTrace();
+    }
+
     }
     
-    private void inicializarComponentes() {
+     private void inicializarComponentes() {
+        // Panel de dados en el área marcada (derecha del tablero)
         JPanel panelDados = new JPanel();
         panelDados.setLayout(new FlowLayout(FlowLayout.CENTER, 20, 10));
         panelDados.setOpaque(false);
-        panelDados.setBounds(1050, 100, 300, 150);
+        panelDados.setBounds(1250, 330, 300, 150); // Posición ajustada según marca
         
         lblDado1 = new JLabel();
         lblDado2 = new JLabel();
@@ -681,8 +691,9 @@ public class TableroVista extends JPanel {
         panelDados.add(lblDado1);
         panelDados.add(lblDado2);
         
+        // Botón TIRAR justo debajo de los dados
         btnTirar = new JButton("TIRAR");
-        btnTirar.setBounds(1100, 280, 200, 60);
+        btnTirar.setBounds(1300, 450, 200, 60); // Justo debajo del panel de dados
         btnTirar.setFont(new Font("Arial", Font.BOLD, 24));
         btnTirar.setBackground(new Color(34, 139, 34));
         btnTirar.setForeground(Color.WHITE);
@@ -704,9 +715,10 @@ public class TableroVista extends JPanel {
         
         btnTirar.addActionListener(e -> tirarDados());
         
+        // Botón SALIR en la esquina superior izquierda
         btnSalir = new JButton("SALIR");
-        btnSalir.setBounds(1100, 600, 200, 60);
-        btnSalir.setFont(new Font("Arial", Font.BOLD, 24));
+        btnSalir.setBounds(20, 20, 120, 50); // Esquina superior izquierda
+        btnSalir.setFont(new Font("Arial", Font.BOLD, 18));
         btnSalir.setBackground(new Color(220, 20, 60));
         btnSalir.setForeground(Color.WHITE);
         btnSalir.setFocusPainted(false);
@@ -999,34 +1011,38 @@ public class TableroVista extends JPanel {
     }
     
     private void dibujarJugadores(Graphics g, int x, int y, int tabW, int tabH) {
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 20));
-        FontMetrics fm = g.getFontMetrics();
-        
-        if (perfilJugador != null) {
-            g.drawImage(perfilJugador, x - 150, y + tabH - 150, 100, 100, this);
-        }
-        int rojoX = x - 150 + 50 - fm.stringWidth(nombreRojo) / 2;
-        g.drawString(nombreRojo, rojoX, y + tabH - 30);
-        
-        if (perfilJugador != null) {
-            g.drawImage(perfilJugador, x - 150, y + 50, 100, 100, this);
-        }
-        int azulX = x - 150 + 50 - fm.stringWidth(nombreAzul) / 2;
-        g.drawString(nombreAzul, azulX, y + 170);
-        
-        if (perfilJugador != null) {
-            g.drawImage(perfilJugador, x + tabW + 50, y + 50, 100, 100, this);
-        }
-        int amarilloX = x + tabW + 50 + 50 - fm.stringWidth(nombreAmarillo) / 2;
-        g.drawString(nombreAmarillo, amarilloX, y + 170);
-        
-        if (perfilJugador != null) {
-            g.drawImage(perfilJugador, x + tabW + 50, y + tabH - 150, 100, 100, this);
-        }
-        int verdeX = x + tabW + 50 + 50 - fm.stringWidth(nombreVerde) / 2;
-        g.drawString(nombreVerde, verdeX, y + tabH - 30);
+    g.setColor(Color.WHITE);
+    g.setFont(new Font("Arial", Font.BOLD, 20));
+    FontMetrics fm = g.getFontMetrics();
+    
+    // ✅ JUGADOR ROJO (Abajo-Izquierda)
+    if (avatarRojo != null) {
+        g.drawImage(avatarRojo, x - 150, y + tabH - 150, 100, 100, this);
     }
+    int rojoX = x - 150 + 50 - fm.stringWidth(nombreRojo) / 2;
+    g.drawString(nombreRojo, rojoX, y + tabH - 30);
+    
+    // ✅ JUGADOR AZUL (Arriba-Izquierda)
+    if (avatarAzul != null) {
+        g.drawImage(avatarAzul, x - 150, y + 50, 100, 100, this);
+    }
+    int azulX = x - 150 + 50 - fm.stringWidth(nombreAzul) / 2;
+    g.drawString(nombreAzul, azulX, y + 170);
+    
+    // ✅ JUGADOR AMARILLO (Arriba-Derecha)
+    if (avatarAmarillo != null) {
+        g.drawImage(avatarAmarillo, x + tabW + 50, y + 50, 100, 100, this);
+    }
+    int amarilloX = x + tabW + 50 + 50 - fm.stringWidth(nombreAmarillo) / 2;
+    g.drawString(nombreAmarillo, amarilloX, y + 170);
+    
+    // ✅ JUGADOR VERDE (Abajo-Derecha)
+    if (avatarVerde != null) {
+        g.drawImage(avatarVerde, x + tabW + 50, y + tabH - 150, 100, 100, this);
+    }
+    int verdeX = x + tabW + 50 + 50 - fm.stringWidth(nombreVerde) / 2;
+    g.drawString(nombreVerde, verdeX, y + tabH - 30);
+}
     
     private void dibujarFichas(Graphics g) {
         if (mapaCasillas == null) return;

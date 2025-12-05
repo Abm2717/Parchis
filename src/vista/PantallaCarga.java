@@ -99,13 +99,12 @@ public class PantallaCarga extends JFrame {
         };
         panelPrincipal.setLayout(null);
         
-        // Panel central translúcido
+        // ✅ Panel contenedor transparente (sin fondo negro)
         int panelWidth = esCreador ? 600 : 600;
         int panelHeight = esCreador ? 600 : 400;
         
         JPanel panelCentral = new JPanel(null);
-        panelCentral.setBackground(new Color(0, 0, 0, 160));
-        panelCentral.setBorder(BorderFactory.createLineBorder(new Color(255, 207, 64), 3));
+        panelCentral.setOpaque(false); // ✅ Completamente transparente
         
         // Centrar panel
         addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -117,28 +116,32 @@ public class PantallaCarga extends JFrame {
             }
         });
         
-        // GIF de carga
+        // ✅ CENTRADO VERTICAL - Calcular posición base
+        int contentHeight = esCreador ? 650 : 450;
+        int startY = (panelHeight - contentHeight) / 2;
+        
+        // ✅ GIF DE CARGA directamente sin panel
         try {
             ImageIcon gifIcon = new ImageIcon(getClass().getResource("/vista/recursos/loading.gif"));
-            Image gifImage = gifIcon.getImage().getScaledInstance(190, -1, Image.SCALE_DEFAULT);
+            Image gifImage = gifIcon.getImage().getScaledInstance(250, 250, Image.SCALE_DEFAULT);
             lblGif = new JLabel(new ImageIcon(gifImage));
-            lblGif.setBounds((panelWidth - 190) / 2, 50, 190, 100);
+            lblGif.setBounds((panelWidth - 300) / 2, startY, 300, 300);
             panelCentral.add(lblGif);
         } catch (Exception e) {
             System.err.println("Error cargando GIF: " + e.getMessage());
         }
         
-        // Texto de espera
+        // Texto de espera - centrado verticalmente
         lblEspera = new JLabel("Esperando jugadores...");
         lblEspera.setFont(new Font("Arial", Font.BOLD, 28));
         lblEspera.setForeground(Color.WHITE);
         lblEspera.setHorizontalAlignment(SwingConstants.CENTER);
-        lblEspera.setBounds(0, 170, panelWidth, 40);
+        lblEspera.setBounds(0, startY + 310, panelWidth, 40);
         panelCentral.add(lblEspera);
         
-        // Botón Listo
+        // Botón Listo - centrado verticalmente
         btnListo = new JButton("Listo");
-        btnListo.setBounds((panelWidth - 200) / 2, 230, 200, 50);
+        btnListo.setBounds((panelWidth - 200) / 2, startY + 370, 200, 50);
         btnListo.setFont(new Font("Arial", Font.BOLD, 22));
         btnListo.setBackground(new Color(255, 235, 59));
         btnListo.setForeground(Color.BLACK);
@@ -147,12 +150,12 @@ public class PantallaCarga extends JFrame {
         btnListo.addActionListener(e -> marcarListo());
         panelCentral.add(btnListo);
         
-        // Panel de información (solo para creador)
+        // Panel de información (solo para creador) - centrado verticalmente
         if (esCreador) {
             JPanel panelInfo = new JPanel(null);
-            panelInfo.setBackground(new Color(0, 0, 0, 100));
+            panelInfo.setBackground(new Color(0, 0, 0, 180));
             panelInfo.setBorder(BorderFactory.createLineBorder(new Color(255, 207, 64), 2));
-            panelInfo.setBounds(50, 290, 500, 180);
+            panelInfo.setBounds(50, startY + 440, 500, 180);
             
             // Título del panel
             JLabel lblTituloInfo = new JLabel("Información de la Partida");
@@ -234,70 +237,54 @@ public class PantallaCarga extends JFrame {
         }
     }
     
-    /**
-     * ✅ MODIFICADO - Ahora pasa el controlador a VentanaJuego
-     */
-    /**
- * ✅ MODIFICADO - Espera a que los nombres estén disponibles
- */
-public void iniciarPartida() {
-    SwingUtilities.invokeLater(() -> {
-        System.out.println("[PantallaCarga] iniciarPartida() llamado");
-        
-        // ✅ INTENTAR obtener nombres con reintentos
-        String[] nombres = null;
-        int intentos = 0;
-        int maxIntentos = 20; // 2 segundos máximo (20 x 100ms)
-        
-        while (nombres == null && intentos < maxIntentos) {
-            nombres = controlador.getNombresGuardados();
+    public void iniciarPartida() {
+        SwingUtilities.invokeLater(() -> {
+            System.out.println("[PantallaCarga] iniciarPartida() llamado");
+            
+            // Intentar obtener nombres con reintentos
+            String[] nombres = null;
+            int intentos = 0;
+            int maxIntentos = 20;
+            
+            while (nombres == null && intentos < maxIntentos) {
+                nombres = controlador.getNombresGuardados();
+                
+                if (nombres == null) {
+                    System.out.println("[PantallaCarga] Esperando nombres... intento " + (intentos + 1));
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    intentos++;
+                }
+            }
             
             if (nombres == null) {
-                System.out.println("[PantallaCarga] Esperando nombres... intento " + (intentos + 1));
-                try {
-                    Thread.sleep(100); // Esperar 100ms
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                intentos++;
+                System.err.println("[ERROR PantallaCarga] No se pudieron obtener nombres después de " + maxIntentos + " intentos");
+                nombres = new String[] { "Jugador Rojo", "Jugador Azul", "Jugador Verde", "Jugador Amarillo" };
+            } else {
+                System.out.println("[PantallaCarga] Nombres obtenidos después de " + intentos + " intentos:");
+                System.out.println("  Rojo=" + nombres[0]);
+                System.out.println("  Azul=" + nombres[1]);
+                System.out.println("  Verde=" + nombres[2]);
+                System.out.println("  Amarillo=" + nombres[3]);
             }
-        }
-        
-        // ✅ Verificar resultado
-        if (nombres == null) {
-            System.err.println("[ERROR PantallaCarga] No se pudieron obtener nombres después de " + maxIntentos + " intentos");
-            nombres = new String[] { "Jugador Rojo", "Jugador Azul", "Jugador Verde", "Jugador Amarillo" };
-        } else {
-            System.out.println("[PantallaCarga] Nombres obtenidos después de " + intentos + " intentos:");
-            System.out.println("  Rojo=" + nombres[0]);
-            System.out.println("  Azul=" + nombres[1]);
-            System.out.println("  Verde=" + nombres[2]);
-            System.out.println("  Amarillo=" + nombres[3]);
-        }
-        
-        // Crear la ventana del juego CON los nombres
-        VentanaJuego ventanaJuego = new VentanaJuego(controlador, nombres);
-        
-        // Obtener referencia al TableroVista
-        TableroVista tablero = ventanaJuego.getTableroVista();
-        
-        // Conectar TableroVista con el controlador
-        controlador.setTableroVista(tablero);
-        
-        // Hacer visible
-        ventanaJuego.setVisible(true);
-        
-        // Cerrar pantalla de carga
-        Window ventanaCarga = SwingUtilities.getWindowAncestor(this);
-        if (ventanaCarga != null) {
-            ventanaCarga.dispose();
-        }
-    });
-}
+            
+            VentanaJuego ventanaJuego = new VentanaJuego(controlador, nombres);
+            TableroVista tablero = ventanaJuego.getTableroVista();
+            controlador.setTableroVista(tablero);
+            ventanaJuego.setVisible(true);
+            
+            Window ventanaCarga = SwingUtilities.getWindowAncestor(this);
+            if (ventanaCarga != null) {
+                ventanaCarga.dispose();
+            }
+        });
+    }
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            // Prueba con información de creador
             new PantallaCarga(null, "Abraham", "Partida Épica", 4, 8000, "/vista/recursos/pp.png");
         });
     }

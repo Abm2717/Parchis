@@ -113,18 +113,22 @@ public class Dispatcher {
     /**
      * ✅ NUEVO: Registra el puerto P2P del cliente
      */
-    private String manejarRegistroPuertoPeer(JsonObject datos) {
-        try {
-            Jugador jugador = clienteHandler.getJugador();
-            if (jugador == null) {
-                return crearRespuestaError("Debes registrarte primero");
-            }
-            
-            int puertoPeer = datos.get("puertoP2P").getAsInt();
-            String ip = clienteHandler.getSocket().getInetAddress().getHostAddress();
-            
-            // Registrar en el servidor
-            clienteHandler.getServidor().registrarInfoPeer(jugador.getId(), ip, puertoPeer);
+   private String manejarRegistroPuertoPeer(JsonObject datos) {
+    try {
+        Jugador jugador = clienteHandler.getJugador();
+        if (jugador == null) {
+            return crearRespuestaError("Debes registrarte primero");
+        }
+        
+        int puertoPeer = datos.get("puertoP2P").getAsInt();
+        
+        // ✅ CORREGIDO: Usar IP enviada por el cliente
+        String ip = datos.has("ipLocal") 
+            ? datos.get("ipLocal").getAsString() 
+            : clienteHandler.getSocket().getInetAddress().getHostAddress();
+        
+        // Registrar en el servidor
+        clienteHandler.getServidor().registrarInfoPeer(jugador.getId(), ip, puertoPeer);
             
             // Si está en una partida, enviar info de peers
             Optional<Partida> partidaOpt = PersistenciaServicio.getInstancia()

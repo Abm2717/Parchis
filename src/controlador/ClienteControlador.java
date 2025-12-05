@@ -549,9 +549,9 @@ public class ClienteControlador {
         JsonObject mensaje = new JsonObject();
         mensaje.addProperty("tipo", "registrar_puerto_peer");
         mensaje.addProperty("puertoP2P", miPuertoPeer);
+        mensaje.addProperty("ipLocal", obtenerIPLocalReal());  // ✅ NUEVO
         enviarMensaje(mensaje);
     }
-    
     private void conectarAPeers(JsonArray peers) {
         if (clientePeer == null) return;
         
@@ -937,4 +937,18 @@ public class ClienteControlador {
     public void marcarTurnoTerminado() {
         esmiTurno = false;
     }
+    public static String obtenerIPLocalReal() {
+    try {
+        for (java.net.NetworkInterface ni : java.util.Collections.list(java.net.NetworkInterface.getNetworkInterfaces())) {
+            for (java.net.InetAddress ia : java.util.Collections.list(ni.getInetAddresses())) {
+                if (!ia.isLoopbackAddress() && ia instanceof java.net.Inet4Address) {
+                    return ia.getHostAddress();
+                }
+            }
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    return "127.0.0.1";
+}
 }

@@ -123,8 +123,9 @@ public class PantallaInicio extends JFrame {
         btnCrear.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                CrearPartida crearPartida = new CrearPartida();
-                crearPartida.setVisible(true);
+                // Ir a SeleccionarJugador en modo CREAR (true)
+                RegistrarJugador seleccionar = new RegistrarJugador(true);
+                seleccionar.setVisible(true);
                 dispose();
             }
         });
@@ -133,8 +134,9 @@ public class PantallaInicio extends JFrame {
         btnUnirse.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                PantallaUnirse pantallaUnirse = new PantallaUnirse();
-                pantallaUnirse.setVisible(true);
+                // Ir a SeleccionarJugador en modo UNIRSE (false)
+                RegistrarJugador seleccionar = new RegistrarJugador(false);
+                seleccionar.setVisible(true);
                 dispose();
             }
         });

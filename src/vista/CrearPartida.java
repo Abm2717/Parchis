@@ -10,14 +10,21 @@ import java.awt.event.ActionListener;
 
 public class CrearPartida extends JFrame {
     
-    private JTextField txtNombreJugador;
     private JTextField txtNombrePartida;
     private JComboBox<String> comboJugadores;
     private JTextField txtPuerto;
+    
+    // Datos del jugador
+    private String nombreJugador;
+    private String rutaAvatar;
 
-    public CrearPartida() {
+    /**
+     * Constructor que recibe nombre y avatar del jugador
+     */
+    public CrearPartida(String nombreJugador, String rutaAvatar) {
+        this.nombreJugador = nombreJugador;
+        this.rutaAvatar = rutaAvatar;
 
-        // Pantalla completa
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -40,7 +47,7 @@ public class CrearPartida extends JFrame {
 
         // Panel central translúcido
         JPanel panel = new JPanel(null);
-        panel.setBackground(new Color(0, 0, 0, 160)); // un poco más suave
+        panel.setBackground(new Color(0, 0, 0, 160));
 
         int w = 480;
         int h = 520;
@@ -56,9 +63,6 @@ public class CrearPartida extends JFrame {
         Font inputFont = new Font("Arial", Font.PLAIN, 20);
 
         Color grisClaro = new Color(220, 220, 220);
-        Color negroTrans = new Color(0, 0, 0, 140);
-
-        // Botón estilo PantallaInicio
         Color amarillo = new Color(255, 207, 64);
         Color amarilloHover = new Color(255, 225, 110);
 
@@ -73,33 +77,27 @@ public class CrearPartida extends JFrame {
         panel.add(titulo);
 
         //------------------------------
+        // MOSTRAR NOMBRE DEL JUGADOR
+        //------------------------------
+        JLabel lblJugador = new JLabel("Jugador: " + nombreJugador);
+        lblJugador.setFont(new Font("Arial", Font.BOLD, 18));
+        lblJugador.setForeground(new Color(255, 235, 59));
+        lblJugador.setBounds(40, 75, 400, 25);
+        panel.add(lblJugador);
+
+        //------------------------------
         // CAMPOS
         //------------------------------
-
-        // Nombre jugador
-        JLabel lblNombreJugador = new JLabel("Tu Nombre:");
-        lblNombreJugador.setFont(labelFont);
-        lblNombreJugador.setForeground(grisClaro);
-        lblNombreJugador.setBounds(40, 85, 200, 30);
-        panel.add(lblNombreJugador);
-
-        txtNombreJugador = new JTextField();
-        txtNombreJugador.setBounds(40, 120, 400, 40);
-        txtNombreJugador.setBackground(new Color(0, 0, 0, 100));
-        txtNombreJugador.setForeground(Color.WHITE);
-        txtNombreJugador.setFont(inputFont);
-        txtNombreJugador.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 60), 2));
-        panel.add(txtNombreJugador);
 
         // Nombre partida
         JLabel lblNombrePartida = new JLabel("Nombre Partida:");
         lblNombrePartida.setFont(labelFont);
         lblNombrePartida.setForeground(grisClaro);
-        lblNombrePartida.setBounds(40, 170, 250, 30);
+        lblNombrePartida.setBounds(40, 115, 250, 30);
         panel.add(lblNombrePartida);
 
-        txtNombrePartida = new JTextField();
-        txtNombrePartida.setBounds(40, 205, 400, 40);
+        txtNombrePartida = new JTextField("Partida de " + nombreJugador);
+        txtNombrePartida.setBounds(40, 150, 400, 40);
         txtNombrePartida.setBackground(new Color(0, 0, 0, 100));
         txtNombrePartida.setForeground(Color.WHITE);
         txtNombrePartida.setFont(inputFont);
@@ -110,12 +108,12 @@ public class CrearPartida extends JFrame {
         JLabel lblJugadores = new JLabel("Jugadores:");
         lblJugadores.setFont(labelFont);
         lblJugadores.setForeground(grisClaro);
-        lblJugadores.setBounds(40, 255, 200, 30);
+        lblJugadores.setBounds(40, 205, 200, 30);
         panel.add(lblJugadores);
 
         String[] numJugadores = {"2", "3", "4"};
         comboJugadores = new JComboBox<>(numJugadores);
-        comboJugadores.setBounds(200, 255, 80, 35);
+        comboJugadores.setBounds(200, 205, 80, 35);
         comboJugadores.setBackground(new Color(0, 0, 0, 120));
         comboJugadores.setForeground(Color.WHITE);
         comboJugadores.setFont(inputFont);
@@ -126,11 +124,11 @@ public class CrearPartida extends JFrame {
         JLabel lblPuerto = new JLabel("Puerto Servidor:");
         lblPuerto.setFont(labelFont);
         lblPuerto.setForeground(grisClaro);
-        lblPuerto.setBounds(40, 305, 250, 30);
+        lblPuerto.setBounds(40, 255, 250, 30);
         panel.add(lblPuerto);
 
         txtPuerto = new JTextField("8000");
-        txtPuerto.setBounds(40, 340, 150, 40);
+        txtPuerto.setBounds(40, 290, 150, 40);
         txtPuerto.setBackground(new Color(0, 0, 0, 100));
         txtPuerto.setForeground(Color.WHITE);
         txtPuerto.setFont(inputFont);
@@ -138,105 +136,263 @@ public class CrearPartida extends JFrame {
         panel.add(txtPuerto);
 
         //------------------------------
-        // BOTÓN ACEPTAR ESTILO "PANTALLA INICIO"
+        // BOTONES
         //------------------------------
-        JButton btnAceptar = new JButton("Aceptar");
-        btnAceptar.setBounds(140, 410, 200, 50);
-        btnAceptar.setBackground(amarillo);
-        btnAceptar.setForeground(Color.BLACK);
-        btnAceptar.setFont(new Font("Arial", Font.BOLD, 24));
-        btnAceptar.setFocusPainted(false);
-        btnAceptar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        int btnY = 360;
 
-        // Borde con relieve 3D
-        btnAceptar.setBorder(BorderFactory.createBevelBorder(
+        // Botón Volver
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.setBounds(60, btnY, 160, 50);
+        btnVolver.setBackground(new Color(200, 200, 200));
+        btnVolver.setForeground(Color.BLACK);
+        btnVolver.setFont(new Font("Arial", Font.BOLD, 20));
+        btnVolver.setFocusPainted(false);
+        btnVolver.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnVolver.setBorder(BorderFactory.createBevelBorder(
                 javax.swing.border.BevelBorder.RAISED,
-                Color.WHITE,              // luz
-                new Color(200, 150, 0)    // sombra
+                Color.WHITE,
+                new Color(150, 150, 150)
         ));
 
-        // Hover
-        btnAceptar.addMouseListener(new java.awt.event.MouseAdapter() {
+        btnVolver.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                btnAceptar.setBackground(amarilloHover);
+                btnVolver.setBackground(new Color(220, 220, 220));
             }
 
             @Override
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                btnAceptar.setBackground(amarillo);
+                btnVolver.setBackground(new Color(200, 200, 200));
             }
         });
 
-        // ===============================
-        //   EVENTO DEL BOTÓN ACEPTAR
-        // ===============================
-        btnAceptar.addActionListener(new ActionListener() {
+        btnVolver.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                RegistrarJugador seleccionar = new RegistrarJugador(true);
+                seleccionar.setVisible(true);
+                dispose();
+            }
+        });
+
+        panel.add(btnVolver);
+
+        // Botón Crear
+        JButton btnCrear = new JButton("Crear");
+        btnCrear.setBounds(260, btnY, 160, 50);
+        btnCrear.setBackground(amarillo);
+        btnCrear.setForeground(Color.BLACK);
+        btnCrear.setFont(new Font("Arial", Font.BOLD, 22));
+        btnCrear.setFocusPainted(false);
+        btnCrear.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnCrear.setBorder(BorderFactory.createBevelBorder(
+                javax.swing.border.BevelBorder.RAISED,
+                Color.WHITE,
+                new Color(200, 150, 0)
+        ));
+
+        btnCrear.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btnCrear.setBackground(amarilloHover);
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btnCrear.setBackground(amarillo);
+            }
+        });
+
+        btnCrear.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 crearYUnirseAPartida();
             }
         });
 
-        panel.add(btnAceptar);
+        panel.add(btnCrear);
 
         setVisible(true);
     }
 
     /**
-    * Abre la pantalla de selección de avatares
-    */
-   private void crearYUnirseAPartida() {
-       // 1. VALIDAR CAMPOS
-       String nombreJugador = txtNombreJugador.getText().trim();
-       String nombrePartida = txtNombrePartida.getText().trim();
-       String puertoStr = txtPuerto.getText().trim();
+     * Valida los datos y crea la partida
+     */
+    private void crearYUnirseAPartida() {
+        String nombrePartida = txtNombrePartida.getText().trim();
+        String puertoStr = txtPuerto.getText().trim();
 
-       if (nombreJugador.isEmpty()) {
-           JOptionPane.showMessageDialog(this, 
-               "Por favor ingresa tu nombre", 
-               "Campo requerido", 
-               JOptionPane.WARNING_MESSAGE);
-           return;
-       }
+        // Validar nombre de partida
+        if (nombrePartida.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Por favor ingresa el nombre de la partida",
+                    "Campo requerido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-       if (nombrePartida.isEmpty()) {
-           JOptionPane.showMessageDialog(this, 
-               "Por favor ingresa el nombre de la partida", 
-               "Campo requerido", 
-               JOptionPane.WARNING_MESSAGE);
-           return;
-       }
+        // Validar puerto
+        int puerto;
+        try {
+            puerto = Integer.parseInt(puertoStr);
+            if (puerto < 1024 || puerto > 65535) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Puerto inválido. Debe ser un número entre 1024 y 65535",
+                    "Error de puerto",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-       int puerto;
-       try {
-           puerto = Integer.parseInt(puertoStr);
-           if (puerto < 1024 || puerto > 65535) {
-               throw new NumberFormatException();
-           }
-       } catch (NumberFormatException ex) {
-           JOptionPane.showMessageDialog(this, 
-               "Puerto inválido. Debe ser un número entre 1024 y 65535", 
-               "Error de puerto", 
-               JOptionPane.ERROR_MESSAGE);
-           return;
-       }
+        int maxJugadores = Integer.parseInt((String) comboJugadores.getSelectedItem());
 
-       int maxJugadores = Integer.parseInt((String) comboJugadores.getSelectedItem());
+        // Desactivar botón para evitar doble click
+        Component[] components = ((JPanel) getContentPane().getComponent(0)).getComponents();
+        for (Component comp : components) {
+            if (comp instanceof JButton && ((JButton) comp).getText().equals("Crear")) {
+                comp.setEnabled(false);
+                ((JButton) comp).setText("Creando...");
+            }
+        }
 
-       // 2. ABRIR PANTALLA DE AVATARES (pasando los datos)
-       Avatares avatares = new Avatares(nombreJugador, nombrePartida, maxJugadores, puerto);
-       avatares.setVisible(true);
+        // Iniciar servidor en hilo separado
+        System.out.println("[CrearPartida] Iniciando servidor...");
 
-       // 3. CERRAR ESTA VENTANA
-       dispose();
-   }
+        Thread hiloServidor = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    ServidorCentral servidor = new ServidorCentral(puerto);
+                    System.out.println("[SERVIDOR] Iniciando en puerto " + puerto);
+                    servidor.iniciar();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            JOptionPane.showMessageDialog(CrearPartida.this,
+                                    "Error al iniciar servidor: " + ex.getMessage(),
+                                    "Error del Servidor",
+                                    JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
+                }
+            }
+        });
+        hiloServidor.setDaemon(true);
+        hiloServidor.start();
+
+        // Esperar a que servidor inicie
+        System.out.println("[CrearPartida] Esperando a que el servidor inicie...");
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
+
+        // Conectar como cliente
+        conectarYAbrir(nombrePartida, maxJugadores, puerto);
+    }
+
+    /**
+     * Conecta al servidor y abre PantallaCarga
+     */
+    private void conectarYAbrir(String nombrePartida, int maxJugadores, int puerto) {
+        Thread hiloConexion = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    System.out.println("[CrearPartida] Conectando a localhost:" + puerto);
+
+                    ClienteControlador controlador = new ClienteControlador(null);
+
+                    boolean conectado = controlador.conectar("localhost", puerto);
+
+                    if (!conectado) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(CrearPartida.this,
+                                        "No se pudo conectar al servidor",
+                                        "Error de Conexión",
+                                        JOptionPane.ERROR_MESSAGE);
+                            }
+                        });
+                        return;
+                    }
+
+                    System.out.println("[CrearPartida] Conectado exitosamente");
+                    Thread.sleep(500);
+
+                    // Registrar jugador
+                    System.out.println("[CrearPartida] Registrando jugador: " + nombreJugador);
+                    boolean registrado = controlador.registrar(nombreJugador);
+
+                    if (!registrado) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(CrearPartida.this,
+                                        "No se pudo registrar el jugador",
+                                        "Error de Registro",
+                                        JOptionPane.ERROR_MESSAGE);
+                            }
+                        });
+                        return;
+                    }
+
+                    System.out.println("[CrearPartida] Jugador registrado");
+
+                    // Unirse a partida
+                    System.out.println("[CrearPartida] Uniéndose a partida...");
+                    controlador.unirseAPartidaDisponible();
+                    Thread.sleep(500);
+
+                    // Abrir pantalla de carga
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            System.out.println("[CrearPartida] Abriendo pantalla de carga");
+
+                            PantallaCarga pantallaCarga = new PantallaCarga(
+                                    controlador,
+                                    nombreJugador,
+                                    nombrePartida,
+                                    maxJugadores,
+                                    puerto,
+                                    rutaAvatar
+                            );
+
+                            pantallaCarga.setVisible(true);
+                            dispose();
+                        }
+                    });
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            JOptionPane.showMessageDialog(CrearPartida.this,
+                                    "Error: " + ex.getMessage(),
+                                    "Error",
+                                    JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
+                }
+            }
+        });
+
+        hiloConexion.start();
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new CrearPartida();
+                new CrearPartida("Abraham", "/vista/recursos/pp.png");
             }
         });
     }

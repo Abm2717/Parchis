@@ -7,42 +7,29 @@
             <file>file:/C:/Users/a5581/Parchis/src/controlador/servidor/ClienteHandler.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/servicios/PersistenciaServicio.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/Jugador/ColorJugador.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/PantallaUnirse.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/VistaCliente.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/Dispatcher.java</file>
+            <file>file:/C:/Users/a5581/Parchis/src/vista/VistaCliente.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/PantallaCarga.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/juego/CtrlUnirse.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/Ficha/Ficha.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/juego/CtrlTirarDado.java</file>
+            <file>file:/C:/Users/a5581/Parchis/src/modelo/Ficha/Ficha.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/servidor/ServidorCentral.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/FichaVisual.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/VistaServidor.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/peer/ClientePeer.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/partida/Dado.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/MapaCasillas.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/CrearPartida.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/recursos/TAB.png</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/PantallaInicio.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/CoordenadaCasilla.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/TableroVista.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/juego/CtrlMoverFicha.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/Tablero/TipoCasilla.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/partida/Partida.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/ClienteControlador.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/Tablero/Tablero.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/servicios/SalaServicio.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/Avatares.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/Tablero/Casilla.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/vista/MenuPrincipal.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/partida/Turno.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/Jugador/Jugador.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/partida/EstadoPartida.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/servicios/GestorMotores.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/controlador/ReglasValidador.java</file>
             <file>file:/C:/Users/a5581/Parchis/src/modelo/partida/MotorJuego.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/recursos/fondo.jpg</file>
-            <file>file:/C:/Users/a5581/Parchis/src/modelo/Tablero/ColorCasilla.java</file>
-            <file>file:/C:/Users/a5581/Parchis/src/vista/VentanaJuego.java</file>
         </group>
     </open-files>
 </project-private>

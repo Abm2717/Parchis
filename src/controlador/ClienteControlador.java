@@ -322,44 +322,57 @@ public class ClienteControlador {
                     System.out.println("[SERVIDOR] Estado tablero recibido (solo validación)");
                     break;
 
-                case "resultado_dados":
-                    JsonObject dados = json.getAsJsonObject("dados");
-                    int dado1 = dados.get("dado1").getAsInt();
-                    int dado2 = dados.get("dado2").getAsInt();
-                    boolean esDoble = dados.get("esDoble").getAsBoolean();
+               case "resultado_dados":
+    JsonObject dados = json.getAsJsonObject("dados");
+    int dado1 = dados.get("dado1").getAsInt();
+    int dado2 = dados.get("dado2").getAsInt();
+    boolean esDoble = dados.get("esDoble").getAsBoolean();
 
-                    ultimosDados[0] = dado1;
-                    ultimosDados[1] = dado2;
-                    ultimoResultadoDados = dado1 + dado2;
+    ultimosDados[0] = dado1;
+    ultimosDados[1] = dado2;
+    ultimoResultadoDados = dado1 + dado2;
 
-                    if (json.has("debeVolverATirar")) {
-                        debeVolverATirar = json.get("debeVolverATirar").getAsBoolean();
-                    } else {
-                        debeVolverATirar = false;
-                    }
+    if (json.has("debeVolverATirar")) {
+        debeVolverATirar = json.get("debeVolverATirar").getAsBoolean();
+    } else {
+        debeVolverATirar = false;
+    }
 
-                    if (json.has("dadoDisponible")) {
-                        dadoDisponible = json.get("dadoDisponible").getAsInt();
-                        System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
-                    } else {
-                        dadoDisponible = 0;
-                    }
+    if (json.has("dadoDisponible")) {
+        dadoDisponible = json.get("dadoDisponible").getAsInt();
+        System.out.println("[DEBUG] Dado disponible recibido: " + dadoDisponible);
+        
+        // ✅ CRÍTICO: Si hay un dado disponible, significa que el OTRO fue usado para sacar
+        // Marcar el dado que NO está disponible como usado
+        if (dadoDisponible == dado1) {
+            // dado1 está disponible → dado2 fue usado
+            ultimosDados[1] = 0;  // Marcar dado2 como consumido
+            System.out.println("[DEBUG] Dado2 (" + dado2 + ") usado para sacar. Dado1 (" + dado1 + ") disponible.");
+        } else if (dadoDisponible == dado2) {
+            // dado2 está disponible → dado1 fue usado
+            ultimosDados[0] = 0;  // Marcar dado1 como consumido
+            System.out.println("[DEBUG] Dado1 (" + dado1 + ") usado para sacar. Dado2 (" + dado2 + ") disponible.");
+        }
+    } else {
+        dadoDisponible = 0;
+    }
 
-                    if (json.has("tieneFichasEnJuego")) {
-                        tieneFichasEnJuego = json.get("tieneFichasEnJuego").getAsBoolean();
-                        System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
-                    } else {
-                        tieneFichasEnJuego = false;
-                    }
+    if (json.has("tieneFichasEnJuego")) {
+        tieneFichasEnJuego = json.get("tieneFichasEnJuego").getAsBoolean();
+        System.out.println("[DEBUG] Tiene fichas en juego: " + tieneFichasEnJuego);
+    } else {
+        tieneFichasEnJuego = false;
+    }
 
-                    if (tableroVista != null) {
-                        tableroVista.mostrarResultadoDados(dado1, dado2);
-                    }
+    if (tableroVista != null) {
+        // ✅ Pasar los dados ACTUALIZADOS (con el usado en 0)
+        tableroVista.mostrarResultadoDados(ultimosDados[0], ultimosDados[1]);
+    }
 
-                    if (vista != null) {
-                        vista.mostrarResultadoDados(dado1, dado2, esDoble);
-                    }
-                    break;
+    if (vista != null) {
+        vista.mostrarResultadoDados(dado1, dado2, esDoble);
+    }
+    break;
 
                 case "jugador_tiro_dados":
                     // ✅ Ignorar - P2P ya lo procesó

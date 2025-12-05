@@ -499,148 +499,153 @@ public class CtrlTirarDado {
        }
    }
    
-    private boolean intentarSacarDosFichasConDoble5(Partida partida, Jugador jugador, MotorJuego motor,
-                                                     ClienteHandler cliente) {
-        try {
-            Ficha ficha1 = jugador.getFichas().stream()
-                .filter(f -> f.estaEnCasa())
-                .findFirst()
-                .orElse(null);
-            
-            if (ficha1 == null) {
-                return true;
-            }
-            
-            System.out.println("[AUTO DOBLE-5] Sacando primera ficha #" + ficha1.getId() + " de " + jugador.getNombre());
-            
-            MotorJuego.ResultadoSacar resultado1 = motor.sacarFichaDeCasa(
-                jugador.getId(),
-                ficha1.getId(),
-                5,
-                5
-            );
-            
-            notificarSacarFicha(partida, jugador, resultado1, cliente);
-            
-            Ficha ficha2 = jugador.getFichas().stream()
-                .filter(f -> f.estaEnCasa())
-                .findFirst()
-                .orElse(null);
-            
-            if (ficha2 == null) {
-                System.out.println("[AUTO DOBLE-5] No hay más fichas en casa para sacar");
-                return false;
-            }
-            
-            Tablero tablero = partida.getTablero();
-            Casilla salida = tablero.getCasillaSalidaParaJugador(jugador.getId());
-            int fichasEnSalida = (int) jugador.getFichas().stream()
-                .filter(f -> !f.estaEnCasa() && f.getCasillaActual() != null && 
-                            f.getCasillaActual().getIndice() == salida.getIndice())
-                .count();
-            
-            if (fichasEnSalida >= 2) {
-                System.out.println("[AUTO DOBLE-5] Ya hay 2 fichas en el inicio, no se puede sacar la segunda");
-                return false;
-            }
-            
-            System.out.println("[AUTO DOBLE-5] Sacando segunda ficha #" + ficha2.getId() + " de " + jugador.getNombre());
-            
-            MotorJuego.ResultadoSacar resultado2 = motor.sacarFichaDeCasa(
-                jugador.getId(),
-                ficha2.getId(),
-                5,
-                0
-            );
-            
-            notificarSacarFicha(partida, jugador, resultado2, cliente);
-            
-            return false;
-            
-        } catch (Exception e) {
-            System.err.println("[AUTO DOBLE-5] Error: " + e.getMessage());
-            return true;
+   private boolean intentarSacarDosFichasConDoble5(Partida partida, Jugador jugador, MotorJuego motor,
+                                                 ClienteHandler cliente) {
+    try {
+        Ficha ficha1 = jugador.getFichas().stream()
+            .filter(f -> f.estaEnCasa())
+            .findFirst()
+            .orElse(null);
+        
+        if (ficha1 == null) {
+            System.out.println("[AUTO DOBLE-5] No hay fichas en casa para sacar");
+            return false; // ✅ Vuelve a tirar (es doble)
         }
+        
+        System.out.println("[AUTO DOBLE-5] Sacando primera ficha #" + ficha1.getId() + " de " + jugador.getNombre());
+        
+        MotorJuego.ResultadoSacar resultado1 = motor.sacarFichaDeCasa(
+            jugador.getId(),
+            ficha1.getId(),
+            5,
+            5
+        );
+        
+        notificarSacarFicha(partida, jugador, resultado1, cliente);
+        
+        Ficha ficha2 = jugador.getFichas().stream()
+            .filter(f -> f.estaEnCasa())
+            .findFirst()
+            .orElse(null);
+        
+        if (ficha2 == null) {
+            System.out.println("[AUTO DOBLE-5] No hay más fichas en casa para sacar");
+            return false; // ✅ Vuelve a tirar (es doble)
+        }
+        
+        Tablero tablero = partida.getTablero();
+        Casilla salida = tablero.getCasillaSalidaParaJugador(jugador.getId());
+        int fichasEnSalida = (int) jugador.getFichas().stream()
+            .filter(f -> !f.estaEnCasa() && f.getCasillaActual() != null && 
+                        f.getCasillaActual().getIndice() == salida.getIndice())
+            .count();
+        
+        if (fichasEnSalida >= 2) {
+            System.out.println("[AUTO DOBLE-5] Ya hay 2 fichas en el inicio, no se puede sacar la segunda");
+            return false; // ✅ Vuelve a tirar (es doble)
+        }
+        
+        System.out.println("[AUTO DOBLE-5] Sacando segunda ficha #" + ficha2.getId() + " de " + jugador.getNombre());
+        
+        MotorJuego.ResultadoSacar resultado2 = motor.sacarFichaDeCasa(
+            jugador.getId(),
+            ficha2.getId(),
+            5,
+            0  // ✅ IMPORTANTE: Pasar 0 para que no piense que hay dado disponible
+        );
+        
+        notificarSacarFicha(partida, jugador, resultado2, cliente);
+        
+        System.out.println("[AUTO DOBLE-5] Dos fichas sacadas. El jugador debe volver a tirar (es doble).");
+        return false; // ✅ CRÍTICO: Retornar false para indicar que debe volver a tirar
+        
+    } catch (Exception e) {
+        System.err.println("[AUTO DOBLE-5] Error: " + e.getMessage());
+        return false; // ✅ En caso de error, también volver a tirar
     }
-    
+}
+   
     private ResultadoAutomatico intentarSacarFichaAutomatica(Partida partida, Jugador jugador, MotorJuego motor,
-                                                              int dado1, int dado2, ClienteHandler cliente) {
-        try {
-            Ficha fichaEnCasa = jugador.getFichas().stream()
-                .filter(f -> f.estaEnCasa())
-                .findFirst()
-                .orElse(null);
-            
-            if (fichaEnCasa == null) {
-                return new ResultadoAutomatico(true, 0);
-            }
-            
-            int fichaId = fichaEnCasa.getId();
-            
-            System.out.println("[AUTO] Sacando automáticamente ficha #" + fichaId + " de " + jugador.getNombre());
-            
-            MotorJuego.ResultadoSacar resultado = motor.sacarFichaDeCasa(
-                jugador.getId(),
-                fichaId,
-                dado1,
-                dado2
-            );
-            
-            VistaServidor.mostrarMovimientoFicha(
-                jugador,
-                fichaId,
-                -1,
-                resultado.casillaLlegada
-            );
-            
-            notificarSacarFicha(partida, jugador, resultado, cliente);
-            
-            if (resultado.capturaRealizada) {
-                Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
-                VistaServidor.mostrarCaptura(
-                    jugador, 
-                    capturado, 
-                    resultado.fichaCapturadaId, 
-                    resultado.bonusGanado
-                );
-                
-                notificarCaptura(partida, jugador, resultado.fichaCapturadaId, 
-                               resultado.jugadorCapturadoId, resultado.bonusGanado, cliente);
-            }
-            
-            if (resultado.hayDadoDisponible()) {
-                int dadoDisp = resultado.getDadoDisponible();
-                System.out.println("[AUTO] Ficha sacada. Dado " + dadoDisp + " disponible para mover.");
-                return new ResultadoAutomatico(true, dadoDisp);
-                
-            } else {
-                System.out.println("[AUTO] Ficha sacada con ambos dados. Pasando turno...");
-                
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                
-                partida.avanzarTurno();
-                
-                Jugador siguienteJugador = partida.getJugadorActual();
-                if (siguienteJugador != null) {
-                    notificarCambioTurno(partida, siguienteJugador, cliente);
-                }
-                
-                return new ResultadoAutomatico(false, 0);
-            }
-            
-        } catch (MotorJuego.MovimientoInvalidoException e) {
-            System.out.println("[AUTO] No se pudo sacar automáticamente: " + e.getMessage());
-            return new ResultadoAutomatico(true, 0);
-        } catch (Exception e) {
-            System.err.println("[AUTO] Error al sacar ficha: " + e.getMessage());
-            e.printStackTrace();
+                                                          int dado1, int dado2, ClienteHandler cliente) {
+    try {
+        Ficha fichaEnCasa = jugador.getFichas().stream()
+            .filter(f -> f.estaEnCasa())
+            .findFirst()
+            .orElse(null);
+        
+        if (fichaEnCasa == null) {
             return new ResultadoAutomatico(true, 0);
         }
+        
+        int fichaId = fichaEnCasa.getId();
+        
+        System.out.println("[AUTO] Sacando automáticamente ficha #" + fichaId + " de " + jugador.getNombre());
+        
+        // ✅ CRÍTICO: Llamar al motor que retorna qué dados se usaron
+        MotorJuego.ResultadoSacar resultado = motor.sacarFichaDeCasa(
+            jugador.getId(),
+            fichaId,
+            dado1,
+            dado2
+        );
+        
+        VistaServidor.mostrarMovimientoFicha(
+            jugador,
+            fichaId,
+            -1,
+            resultado.casillaLlegada
+        );
+        
+        notificarSacarFicha(partida, jugador, resultado, cliente);
+        
+        if (resultado.capturaRealizada) {
+            Jugador capturado = partida.getJugadorPorId(resultado.jugadorCapturadoId);
+            VistaServidor.mostrarCaptura(
+                jugador, 
+                capturado, 
+                resultado.fichaCapturadaId, 
+                resultado.bonusGanado
+            );
+            
+            notificarCaptura(partida, jugador, resultado.fichaCapturadaId, 
+                           resultado.jugadorCapturadoId, resultado.bonusGanado, cliente);
+        }
+        
+        // ✅ VERIFICAR SI HAY DADO DISPONIBLE (el motor ya determinó esto)
+        if (resultado.hayDadoDisponible()) {
+            int dadoDisp = resultado.getDadoDisponible();
+            System.out.println("[AUTO] Ficha sacada con un 5. Dado " + dadoDisp + " disponible para mover.");
+            return new ResultadoAutomatico(true, dadoDisp);
+            
+        } else {
+            // Usó ambos dados (suma = 5), pasar turno
+            System.out.println("[AUTO] Ficha sacada con suma=5 (ambos dados). Pasando turno...");
+            
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
+            partida.avanzarTurno();
+            
+            Jugador siguienteJugador = partida.getJugadorActual();
+            if (siguienteJugador != null) {
+                notificarCambioTurno(partida, siguienteJugador, cliente);
+            }
+            
+            return new ResultadoAutomatico(false, 0);
+        }
+        
+    } catch (MotorJuego.MovimientoInvalidoException e) {
+        System.out.println("[AUTO] No se pudo sacar automáticamente: " + e.getMessage());
+        return new ResultadoAutomatico(true, 0);
+    } catch (Exception e) {
+        System.err.println("[AUTO] Error al sacar ficha: " + e.getMessage());
+        e.printStackTrace();
+        return new ResultadoAutomatico(true, 0);
     }
+}
     
     private void pasarTurnoAutomaticamente(Partida partida, Jugador jugador, ClienteHandler cliente) {
         try {
